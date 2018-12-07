@@ -1,5 +1,4 @@
 import os 
-import pickle 
 import pyfftw
 import numpy as np 
 from scipy.io import FortranFile
@@ -38,7 +37,7 @@ def read_fortFFT(file='/Users/ChangHoon/data/pyspectrum/FFT_Q_CutskyN1.fidcosmo.
     return delta 
 
 
-def Bk123_periodic(Nmax=40, Ncut=3, step=3, fft_method='pyfftw'): 
+def Bk123_periodic(Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=True): 
     ''' Calculate the bispectrum for periodic box.
     '''
     delta = read_fortFFT() 
@@ -91,27 +90,41 @@ def Bk123_periodic(Nmax=40, Ncut=3, step=3, fft_method='pyfftw'):
     
     #bisp = np.zeros((Nmax//step+1, Nmax//step+1, Nmax//step+1), dtype=float) #default double prec
     #for i in range(Ncut // step, Nmax // step+1): 
-    bisp = np.zeros((Nmax+1, Nmax+1, Nmax+1), dtype=float) #default double prec
+    bisp = np.zeros((Nmax, Nmax, Nmax), dtype=float) #default double prec
     for i in range(Ncut//step, Nmax+1): 
         for j in range(Ncut//step, i+1):
             for l in range(max(i-j, Ncut//step), j+1):
-                bisp[i,j,l] = np.einsum('i,i,i', deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
-                print i, j, l, bisp[i,j,l]
-    return None 
+                i_arr.append(i) 
+                j_arr.append(j) 
+                l_arr.append(l) 
+                bisp[i-1,j-1,l-1] = np.einsum('i,i,i', deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
+    
+    i_arr = np.array(i_arr) 
+    j_arr = np.array(j_arr) 
+    l_arr = np.array(l_arr) 
+
+    counts = _counts_Bk123(Ngrid=Ngrid, Nmax=Nmax, Ncut=Ncut, step=step, fft_method=fft_method, silent=silent) 
+    counts[counts == 0] = np.inf
+    bisp /= counts
+    return i_arr, j_arr, l_arr, bisp  
 
 
 def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=True): 
     ''' return bispectrum normalization 
+    @chh explain nmax, ncut, and step below 
     '''
     f_counts = ''.join([UT.dat_dir(), 'counts', 
         '.Ngrid', str(Ngrid),
-        '.Ncut', str(Ncut),
         '.Nmax', str(Nmax),
+        '.Ncut', str(Ncut),
         '.step', str(step),
-        '.', fft_method, '.p']) 
+        '.', fft_method]) 
 
     if os.path.isfile(f_counts): 
-        counts = pickle.load(open(f_counts), 'rb') 
+        f = FortranFile(f_counts, 'r') 
+        counts = f.read_reals() 
+        f.close() 
+        #counts = pickle.load(open(f_counts), 'rb') 
     else: 
         if not silent: print("--- calculating %s ---" % f_counts) 
         delta = np.ones((Ngrid, Ngrid, Ngrid))
@@ -153,14 +166,18 @@ def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silen
                 deltaKshellX[j] = np.fft.fftn(tempK)
         
         if not silent: print("--- calculating counts ---") 
-        counts = np.zeros((Nmax+1, Nmax+1, Nmax+1), dtype=float) #default double prec
+        counts = np.zeros((Nmax, Nmax, Nmax), dtype=float) #default double prec
         for i in range(Ncut//step, Nmax+1): 
             for j in range(Ncut//step, i+1):
                 for l in range(max(i-j, Ncut//step), j+1):
-                    counts[i,j,l] = np.einsum('i,i,i', deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
+                    counts[i-1,j-1,l-1] = np.einsum('i,i,i', 
+                            deltaKshellX[i].ravel(), 
+                            deltaKshellX[j].ravel(), 
+                            deltaKshellX[l].ravel())
 
         # save to file  
-        pickle.dump(counts, open(f_counts, 'wb'))
-
+        f = FortranFile(f_counts, 'w') 
+        f.write_record(counts, dtype=np.float) # double prec 
+        f.close() 
+        #pickle.dump(counts, open(f_counts, 'wb'))
     return counts 
-
