@@ -133,7 +133,9 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=T
                 l_arr.append(l) 
                 #bisp[i-1,j-1,l-1] = np.einsum('i,i,i', deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
                 bisp_ijl = np.einsum('i,i,i', deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
+                print bisp_ijl
                 bisp_arr.append(bisp_ijl/counts[i-1,j-1,l-1]) 
+                print bisp_ijl/counts[i-1,j-1,l-1]
     
     i_arr = np.array(i_arr) * step 
     j_arr = np.array(j_arr) * step 
