@@ -1,4 +1,5 @@
 import os 
+import fftw3 
 import pyfftw
 import numpy as np 
 from scipy.io import FortranFile
@@ -6,8 +7,54 @@ from scipy.io import FortranFile
 import estimator as fEstimate
 from . import util as UT
 
+def FFTing(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True): 
+    kf_ks = np.float32(float(Ngrid) / Lbox)
+    Ng = np.int32(gals.shape[1]) # number of galaxies
 
-def FFTperiodic(gals, Lbox=2600., Ngrid=360, silent=True): 
+    # position of galaxies (checked with fortran) 
+    xyz_gals = np.zeros([3, Ng], dtype=np.float32, order='F') 
+    xyz_gals[0,:] = np.clip(gals[0,:], 0., Lbox*(1.-1e-6))
+    xyz_gals[1,:] = np.clip(gals[1,:], 0., Lbox*(1.-1e-6))
+    xyz_gals[2,:] = np.clip(gals[2,:], 0., Lbox*(1.-1e-6))
+    if not silent: print('%i galaxy positions saved' % Ng) 
+    
+    # assign galaxies to grid (checked with fortran) 
+    _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F') # even indices (real) odd (complex)
+    fEstimate.assign2(xyz_gals, _delta, kf_ks, Ng, Ngrid) 
+        
+    delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F')
+    delta.real = _delta[::2,:,:] 
+    delta.imag = _delta[1::2,:,:] 
+        
+    fEstimate.ffting(delta, Ng, Ngrid) 
+    delt = _delta[:Ngrid/2+1,:,:]
+    return delt
+
+    # reflect half field
+    if not silent: print('reflecting the half field') 
+    delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64)
+    # i = 0 - Ngrid // 2 (confirmed correct) 
+    delta[:Ngrid//2+1, :, :] = delt[:,:,:]
+    
+    # i = Ngrid // 2 - Ngrid (confirmed corect)
+    delta[:Ngrid//2:-1, Ngrid:0:-1, Ngrid:0:-1] = np.conj(delt[1:Ngrid//2,1:Ngrid,1:Ngrid])
+    delta[:Ngrid//2:-1, Ngrid:0:-1, 0] = np.conj(delt[1:Ngrid//2,1:Ngrid,0])
+    delta[:Ngrid//2:-1, 0, Ngrid:0:-1] = np.conj(delt[1:Ngrid//2,0,1:Ngrid])
+    # reflect the x-axis
+    delta[:Ngrid//2:-1,0,0] = np.conj(delt[1:Ngrid//2,0,0])
+
+    hg = Ngrid//2
+    delta[hg,0,0]    = np.real(delt[hg,0,0])
+    delta[0,hg,0]    = np.real(delt[0,hg,0])
+    delta[0,0,hg]    = np.real(delt[0,0,hg])
+    delta[0,hg,hg]   = np.real(delt[0,hg,hg])
+    delta[hg,0,hg]   = np.real(delt[hg,0,hg])
+    delta[hg,hg,0]   = np.real(delt[hg,hg,0])
+    delta[hg,hg,hg]  = np.real(delt[hg,hg,hg])
+    return delta 
+
+
+def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True, test=None): 
     ''' Put galaxies in a grid and FFT it. This function is essentially a 
     wrapper for estimator.f and does the same thing as roman's 
     zmapFFTil4_aniso_gen.f 
@@ -25,29 +72,38 @@ def FFTperiodic(gals, Lbox=2600., Ngrid=360, silent=True):
     # assign galaxies to grid (checked with fortran) 
     _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F') # even indices (real) odd (complex)
     fEstimate.assign2(xyz_gals, _delta, kf_ks, Ng, Ngrid) 
-
-    delta = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex64')
+    
+    if fft == 'pyfftw': 
+        delta = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex64')
+    elif fft == 'fftw3': 
+        delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex128')
     delta.real = _delta[::2,:,:] 
     delta.imag = _delta[1::2,:,:] 
     if not silent: print('galaxy positions assigned to grid') 
+    if test == 'assign': return delta 
 
     # FFT delta (checked with fortran code, more or less matches)
-    #_empty = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex128')
-    #_ifft_empty = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex128')
-    #fftw_obj = pyfftw.FFTW(_empty, _ifft_empty, axes=(0,1,2,), 
-    #        direction='FFTW_BACKWARD', flags=('FFTW_ESTIMATE', ))
-    #ifft_delta = fftw_obj(delta, normalise_idft=False)
-    fftw_ob = pyfftw.builders.ifftn(delta, axes=(0,1,2,))#, planner_effort='FFTW_ESTIMATE')
-    pyfftw.interfaces.cache.enable()
-    ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F') 
-    ifft_delta[:,:,:] = fftw_ob(normalise_idft=False)
+    if fft == 'pyfftw': 
+        fftw_ob = pyfftw.builders.ifftn(delta, planner_effort='FFTW_ESTIMATE') # axes=(0,1,2,))
+        #ifft_delta = fftw_ob(normalise_idft=False)
+        ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F') 
+        ifft_delta[:,:,:] = fftw_ob(normalise_idft=False)
+    elif fft == 'fftw3': 
+        _ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex128')#, order='F') 
+        ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64, order='F') 
+        fftplan = fftw3.Plan(delta, _ifft_delta, direction='backward', flags=['estimate'])
+        fftplan.execute() 
+        ifft_delta[:,:,:] = _ifft_delta[:,:,:]
+
+    if test == 'fft': return ifft_delta 
 
     if not silent: print('galaxy grid FFTed') 
-    _ifft_delta = ifft_delta.copy() 
     # fcombine 
     fEstimate.fcomb(ifft_delta,Ng,Ngrid) 
     if not silent: print('fcomb complete') 
     delt = ifft_delta[:Ngrid/2+1,:,:]
+    if test == 'fcomb': 
+        return delt 
     
     # reflect half field
     if not silent: print('reflecting the half field') 
@@ -169,9 +225,9 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=T
                 l_arr.append(l) 
                 #bisp[i-1,j-1,l-1] = np.einsum('i,i,i', deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
                 bisp_ijl = np.einsum('i,i,i', deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
-                print bisp_ijl
+                #print bisp_ijl
                 bisp_arr.append(bisp_ijl/counts[i-1,j-1,l-1]) 
-                print bisp_ijl/counts[i-1,j-1,l-1]
+                #print bisp_ijl/counts[i-1,j-1,l-1]
     
     i_arr = np.array(i_arr) * step 
     j_arr = np.array(j_arr) * step 
@@ -255,7 +311,7 @@ def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silen
     return counts 
 
 
-def read_fortFFT(file='/Users/ChangHoon/data/pyspectrum/FFT_Q_CutskyN1.fidcosmo.dat.grid360.P020000.box3600'): 
+def read_fortFFT(file=None): 
     ''' Read FFT grid from fortran output and return delta[i_k,j_k,l_k]
     '''
     f = FortranFile(file, 'r')
