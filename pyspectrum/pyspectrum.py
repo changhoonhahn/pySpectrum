@@ -3,18 +3,54 @@ import pyfftw
 import numpy as np 
 from scipy.io import FortranFile
 # -- local -- 
+import estimator as fEstimate
 from . import util as UT
 
 
-def read_fortFFT(file='/Users/ChangHoon/data/pyspectrum/FFT_Q_CutskyN1.fidcosmo.dat.grid360.P020000.box3600'): 
-    ''' Read FFT grid from fortran output and return delta[i_k,j_k,l_k]
+def FFTperiodic(gals, Lbox=2600., Ngrid=360, silent=True): 
+    ''' Put galaxies in a grid and FFT it. This function is essentially a 
+    wrapper for estimator.f and does the same thing as roman's 
+    zmapFFTil4_aniso_gen.f 
     '''
-    f = FortranFile(file, 'r')
-    Ngrid = f.read_ints(dtype=np.int32)[0]
-    delt = f.read_reals(dtype=np.complex64) 
-    delt = np.reshape(delt, (Ngrid/2+1, Ngrid, Ngrid), order='F')
+    kf_ks = np.float32(float(Ngrid) / Lbox)
+    Ng = np.int32(gals.shape[1]) # number of galaxies
 
+    # position of galaxies (checked with fortran) 
+    xyz_gals = np.zeros([3, Ng], dtype=np.float32, order='F') 
+    xyz_gals[0,:] = np.clip(gals[0,:], 0., Lbox*(1.-1e-6))
+    xyz_gals[1,:] = np.clip(gals[1,:], 0., Lbox*(1.-1e-6))
+    xyz_gals[2,:] = np.clip(gals[2,:], 0., Lbox*(1.-1e-6))
+    if not silent: print('%i galaxy positions saved' % Ng) 
+    
+    # assign galaxies to grid (checked with fortran) 
+    _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F') # even indices (real) odd (complex)
+    fEstimate.assign2(xyz_gals, _delta, kf_ks, Ng, Ngrid) 
+
+    delta = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex64')
+    delta.real = _delta[::2,:,:] 
+    delta.imag = _delta[1::2,:,:] 
+    if not silent: print('galaxy positions assigned to grid') 
+
+    # FFT delta (checked with fortran code, more or less matches)
+    #_empty = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex128')
+    #_ifft_empty = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex128')
+    #fftw_obj = pyfftw.FFTW(_empty, _ifft_empty, axes=(0,1,2,), 
+    #        direction='FFTW_BACKWARD', flags=('FFTW_ESTIMATE', ))
+    #ifft_delta = fftw_obj(delta, normalise_idft=False)
+    fftw_ob = pyfftw.builders.ifftn(delta, axes=(0,1,2,))#, planner_effort='FFTW_ESTIMATE')
+    pyfftw.interfaces.cache.enable()
+    ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F') 
+    ifft_delta[:,:,:] = fftw_ob(normalise_idft=False)
+
+    if not silent: print('galaxy grid FFTed') 
+    _ifft_delta = ifft_delta.copy() 
+    # fcombine 
+    fEstimate.fcomb(ifft_delta,Ng,Ngrid) 
+    if not silent: print('fcomb complete') 
+    delt = ifft_delta[:Ngrid/2+1,:,:]
+    
     # reflect half field
+    if not silent: print('reflecting the half field') 
     delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64)
     # i = 0 - Ngrid // 2 (confirmed correct) 
     delta[:Ngrid//2+1, :, :] = delt[:,:,:]
@@ -217,3 +253,34 @@ def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silen
         f.close() 
         #pickle.dump(counts, open(f_counts, 'wb'))
     return counts 
+
+
+def read_fortFFT(file='/Users/ChangHoon/data/pyspectrum/FFT_Q_CutskyN1.fidcosmo.dat.grid360.P020000.box3600'): 
+    ''' Read FFT grid from fortran output and return delta[i_k,j_k,l_k]
+    '''
+    f = FortranFile(file, 'r')
+    Ngrid = f.read_ints(dtype=np.int32)[0]
+    delt = f.read_reals(dtype=np.complex64) 
+    delt = np.reshape(delt, (Ngrid/2+1, Ngrid, Ngrid), order='F')
+
+    # reflect half field
+    delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64)
+    # i = 0 - Ngrid // 2 (confirmed correct) 
+    delta[:Ngrid//2+1, :, :] = delt[:,:,:]
+    
+    # i = Ngrid // 2 - Ngrid (confirmed corect)
+    delta[:Ngrid//2:-1, Ngrid:0:-1, Ngrid:0:-1] = np.conj(delt[1:Ngrid//2,1:Ngrid,1:Ngrid])
+    delta[:Ngrid//2:-1, Ngrid:0:-1, 0] = np.conj(delt[1:Ngrid//2,1:Ngrid,0])
+    delta[:Ngrid//2:-1, 0, Ngrid:0:-1] = np.conj(delt[1:Ngrid//2,0,1:Ngrid])
+    # reflect the x-axis
+    delta[:Ngrid//2:-1,0,0] = np.conj(delt[1:Ngrid//2,0,0])
+
+    hg = Ngrid//2
+    delta[hg,0,0]    = np.real(delt[hg,0,0])
+    delta[0,hg,0]    = np.real(delt[0,hg,0])
+    delta[0,0,hg]    = np.real(delt[0,0,hg])
+    delta[0,hg,hg]   = np.real(delt[0,hg,hg])
+    delta[hg,0,hg]   = np.real(delt[hg,0,hg])
+    delta[hg,hg,0]   = np.real(delt[hg,hg,0])
+    delta[hg,hg,hg]  = np.real(delt[hg,hg,hg])
+    return delta 
