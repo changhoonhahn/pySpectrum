@@ -17,26 +17,30 @@ def FFTperiodic(gals, Lbox=2600., Ngrid=360, silent=True):
     xyz_gals[1,:] = np.clip(gals[1,:], 0., Lbox*(1.-1e-6))
     xyz_gals[2,:] = np.clip(gals[2,:], 0., Lbox*(1.-1e-6))
     if not silent: print('%i galaxy positions saved' % Ng) 
-
-    #delta = pyfftw.n_byte_align_empty((2*Ngrid, Ngrid, Ngrid), 16, dtype='complex64', order='F')
-    _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F') 
+    
+    # assign galaxies to grid (checked with fortran) 
+    _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F') # even indices (real) odd (complex)
     fEstimate.assign2(xyz_gals, _delta, kf_ks, Ng, Ngrid) 
-    if not silent: print('galaxy positions assigned to grid') 
-    delta = np.zeros([Ngrid, Ngrid, Ngrid], dtype=np.complex64, order='F') 
-    delta = _delta[::2,:,:]  # even indices are reals
-    delta = j*_delta[np.arange(1, Ngrid+1)[::2],:,:] # odds are complex 
-    return delta 
-    ''' 
-    # FFT delta 
-    fft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F')
-    fftw_ob = pyfftw.builders.ifftn(delta, planner_effort='FFTW_ESTIMATE')
-    pyfftw.interfaces.cache.enable()
-    _fft_delta = fftw_ob(delta)
-    fft_delta[:,:,:] = _fft_delta.copy()
-    if not silent: print('galaxy grid FFTed') 
 
+    delta = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex64')
+    delta.real = _delta[::2,:,:] 
+    delta.imag = _delta[1::2,:,:] 
+    if not silent: print('galaxy positions assigned to grid') 
+
+    # FFT delta (checked with fortran code, more or less matches)
+    #_empty = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex128')
+    #_ifft_empty = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex128')
+    #fftw_obj = pyfftw.FFTW(_empty, _ifft_empty, axes=(0,1,2,), 
+    #        direction='FFTW_BACKWARD', flags=('FFTW_ESTIMATE', ))
+    #ifft_delta = fftw_obj(delta, normalise_idft=False)
+    fftw_ob = pyfftw.builders.ifftn(delta, axes=(0,1,2,))#, planner_effort='FFTW_ESTIMATE')
+    pyfftw.interfaces.cache.enable()
+    ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F') 
+    ifft_delta[:,:,:] = fftw_ob(normalise_idft=False)
+
+    if not silent: print('galaxy grid FFTed') 
+    _ifft_delta = ifft_delta.copy() 
     # fcombine 
-    fEstimate.fcomb(fft_delta,Ng,Ngrid) 
+    fEstimate.fcomb(ifft_delta,Ng,Ngrid) 
     if not silent: print('fcomb complete') 
-    return fft_delta[:Ngrid/2+1,:,:]
-    '''
+    return ifft_delta[:Ngrid/2+1,:,:]
