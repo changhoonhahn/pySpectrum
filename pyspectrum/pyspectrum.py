@@ -132,7 +132,7 @@ def Pk_periodic_f77(delta, Lbox=None):
     return ks, (2.*np.pi)**3 * p0k 
 
 
-def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=True): 
+def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, silent=True): 
     ''' Calculate the bispectrum for periodic box given delta(k) 3D field.
     '''
     Ngrid = delta.shape[0]
@@ -171,7 +171,7 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=T
     
         if fft_method == 'pyfftw': 
             if j == (Ncut // step): 
-                fftw_ob = pyfftw.builders.fftn(tempK, planner_effort='FFTW_ESTIMATE')
+                fftw_ob = pyfftw.builders.fftn(tempK, planner_effort='FFTW_ESTIMATE', threads=nthreads)
                 pyfftw.interfaces.cache.enable()
             fft_tempK = fftw_ob(tempK)
             deltaKshellX[j] = np.real(fft_tempK)
@@ -182,31 +182,40 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=T
     
     # counts for normalizing  
     counts = _counts_Bk123(Ngrid=Ngrid, Nmax=Nmax, Ncut=Ncut, step=step, fft_method=fft_method, silent=silent) 
-    counts[counts == 0] = np.inf
+    #counts[counts == 0] = np.inf
 
     if not silent: print("--- calculating B(k1,k2,k3) ---") 
-    #bisp = np.zeros((Nmax//step+1, Nmax//step+1, Nmax//step+1), dtype=float) #default double prec
-    #for i in range(Ncut // step, Nmax // step+1): 
-    i_arr, j_arr, l_arr = [], [], []
-    bisp_arr = [] 
     #bisp = np.zeros((Nmax, Nmax, Nmax), dtype=float) #default double prec
+    i_arr, j_arr, l_arr = [], [], []
+    b123_arr, q123_arr = [], [] 
     for i in range(Ncut//step, Nmax+1): 
         for j in range(Ncut//step, i+1):
             for l in range(max(i-j, Ncut//step), j+1):
-                i_arr.append(i) 
-                j_arr.append(j) 
-                l_arr.append(l) 
-                #bisp[i-1,j-1,l-1] = np.einsum('i,i,i', deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
-                bisp_ijl = np.einsum('i,i,i', deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
-                #print bisp_ijl
-                bisp_arr.append(bisp_ijl/counts[i-1,j-1,l-1]) 
-                #print bisp_ijl/counts[i-1,j-1,l-1]
-    
+                if counts[i-1,j-1,l-1] > 0: 
+                    i_arr.append(i) 
+                    j_arr.append(j) 
+                    l_arr.append(l) 
+                    #bisp[i-1,j-1,l-1] = np.einsum('i,i,i', 
+                    # deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
+                    bisp_ijl = np.einsum('i,i,i', 
+                            deltaKshellX[i].ravel(), 
+                            deltaKshellX[j].ravel(), 
+                            deltaKshellX[l].ravel())
+                    #print bisp_ijl
+                    b123_arr.append(bisp_ijl/counts[i-1,j-1,l-1]) 
+                    q123_arr.append(bisp_ijl/counts[i-1,j-1,l-1]/(p0k[i-1]*p0k[j-1] + p0k[j-1]*p0k[l-1] + p0k[l-1]*p0k[i-1]))
+                    #print bisp_ijl
+                    #print bisp_ijl/counts[i-1,j-1,l-1]
+                else: 
+                    b123_arr.append(0.) 
+                    q123_arr.append(0.) 
+
     i_arr = np.array(i_arr) * step 
     j_arr = np.array(j_arr) * step 
     l_arr = np.array(l_arr) * step 
-    bisp_arr = np.array(bisp_arr)
-    return i_arr, j_arr, l_arr, bisp_arr
+    b123_arr = np.array(b123_arr)
+    q123_arr = np.array(q123_arr) 
+    return i_arr, j_arr, l_arr, b123_arr, q123_arr
 
 
 def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=True): 
