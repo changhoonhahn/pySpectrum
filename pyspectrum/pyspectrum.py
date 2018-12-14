@@ -7,52 +7,6 @@ from scipy.io import FortranFile
 import estimator as fEstimate
 from . import util as UT
 
-def FFTing(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True): 
-    kf_ks = np.float32(float(Ngrid) / Lbox)
-    Ng = np.int32(gals.shape[1]) # number of galaxies
-
-    # position of galaxies (checked with fortran) 
-    xyz_gals = np.zeros([3, Ng], dtype=np.float32, order='F') 
-    xyz_gals[0,:] = np.clip(gals[0,:], 0., Lbox*(1.-1e-6))
-    xyz_gals[1,:] = np.clip(gals[1,:], 0., Lbox*(1.-1e-6))
-    xyz_gals[2,:] = np.clip(gals[2,:], 0., Lbox*(1.-1e-6))
-    if not silent: print('%i galaxy positions saved' % Ng) 
-    
-    # assign galaxies to grid (checked with fortran) 
-    _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F') # even indices (real) odd (complex)
-    fEstimate.assign2(xyz_gals, _delta, kf_ks, Ng, Ngrid) 
-        
-    delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F')
-    delta.real = _delta[::2,:,:] 
-    delta.imag = _delta[1::2,:,:] 
-        
-    fEstimate.ffting(delta, Ng, Ngrid) 
-    delt = _delta[:Ngrid/2+1,:,:]
-    return delt
-
-    # reflect half field
-    if not silent: print('reflecting the half field') 
-    delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64)
-    # i = 0 - Ngrid // 2 (confirmed correct) 
-    delta[:Ngrid//2+1, :, :] = delt[:,:,:]
-    
-    # i = Ngrid // 2 - Ngrid (confirmed corect)
-    delta[:Ngrid//2:-1, Ngrid:0:-1, Ngrid:0:-1] = np.conj(delt[1:Ngrid//2,1:Ngrid,1:Ngrid])
-    delta[:Ngrid//2:-1, Ngrid:0:-1, 0] = np.conj(delt[1:Ngrid//2,1:Ngrid,0])
-    delta[:Ngrid//2:-1, 0, Ngrid:0:-1] = np.conj(delt[1:Ngrid//2,0,1:Ngrid])
-    # reflect the x-axis
-    delta[:Ngrid//2:-1,0,0] = np.conj(delt[1:Ngrid//2,0,0])
-
-    hg = Ngrid//2
-    delta[hg,0,0]    = np.real(delt[hg,0,0])
-    delta[0,hg,0]    = np.real(delt[0,hg,0])
-    delta[0,0,hg]    = np.real(delt[0,0,hg])
-    delta[0,hg,hg]   = np.real(delt[0,hg,hg])
-    delta[hg,0,hg]   = np.real(delt[hg,0,hg])
-    delta[hg,hg,0]   = np.real(delt[hg,hg,0])
-    delta[hg,hg,hg]  = np.real(delt[hg,hg,hg])
-    return delta 
-
 
 def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True, test=None): 
     ''' Put galaxies in a grid and FFT it. This function is essentially a 
@@ -77,6 +31,8 @@ def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True, test=Non
         delta = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex64')
     elif fft == 'fftw3': 
         delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex128')
+    elif fft == 'fortran': 
+        delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F')
     delta.real = _delta[::2,:,:] 
     delta.imag = _delta[1::2,:,:] 
     if not silent: print('galaxy positions assigned to grid') 
@@ -94,7 +50,10 @@ def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True, test=Non
         fftplan = fftw3.Plan(delta, _ifft_delta, direction='backward', flags=['estimate'])
         fftplan.execute() 
         ifft_delta[:,:,:] = _ifft_delta[:,:,:]
-
+    elif fft == 'fortran': 
+        ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64, order='F') 
+        fEstimate.ffting(delta, Ng, Ngrid) 
+        ifft_delta[:,:,:] = delta[:,:,:]
     if test == 'fft': return ifft_delta 
 
     if not silent: print('galaxy grid FFTed') 
@@ -102,8 +61,7 @@ def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True, test=Non
     fEstimate.fcomb(ifft_delta,Ng,Ngrid) 
     if not silent: print('fcomb complete') 
     delt = ifft_delta[:Ngrid/2+1,:,:]
-    if test == 'fcomb': 
-        return delt 
+    if test == 'fcomb': return delt 
     
     # reflect half field
     if not silent: print('reflecting the half field') 

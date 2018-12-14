@@ -12,8 +12,8 @@ cc*******************************************************************
       call sfftw_execute_dft(planf,dtl,dtl)
       write(*,*)'destroy plan'
       call sfftw_destroy_plan(planf)
-      write(*,*)'doing fcomb'
-      call fcomb(dtl,N,Ngrid)
+c      write(*,*)'doing fcomb'
+c      call fcomb(dtl,N,Ngrid)
       return 
       end 
 cc*******************************************************************
@@ -245,21 +245,21 @@ c
 cc*******************************************************************
       subroutine fcomb(dcl,N,Ngrid)
 cc*******************************************************************
-      integer, intent(in) :: N,Ngrid
-      complex, intent(inout) :: dcl(Ngrid,Ngrid,Ngrid)
       parameter(tpi=6.283185307d0)
       real*8 tpiL,piL
       complex*16 recx,recy,recz,xrec,yrec,zrec
       complex c1,ci,c000,c001,c010,c011,cma,cmb,cmc,cmd
-Cf2py intent(in) n
-Cf2py intent(in) ngrid
-Cf2py intent(inout) dcl 
+      integer, intent(in) :: N,Ngrid
+      complex, intent(inout) :: dcl(Ngrid,Ngrid,Ngrid)
+
       cf=1./(6.**3*4.*N)
 
       Lnyq=Ngrid/2+1
       tpiL=tpi/float(Ngrid)
       piL=-tpiL/2.
       recx=cmplx(dcos(piL),dsin(piL))
+      recy=cmplx(dcos(piL),dsin(piL))
+      recz=cmplx(dcos(piL),dsin(piL))
       
       c1=cmplx(1.,0.)
       ci=cmplx(0.,1.)

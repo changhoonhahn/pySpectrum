@@ -1,12 +1,15 @@
+import numpy as np 
 from numpy.distutils.core import setup
 from numpy.distutils.core import Extension
 
 __version__ = '0.0'
 
 ext = Extension(name='estimator', 
-        sources=['pyspectrum/estimator.f'],
-        extra_link_args=['-L/usr/local/lib', '-lfftw3', '-I/usr/local/include'])
-#        extra_link_args=['-L/usr/local/lib', '-lrfftw', '-lfftw', '-I/usr/local/include'])
+        sources=['pyspectrum/estimator.f'], 
+        language='f77', 
+        library_dirs = ["/usr/local/lib"],
+        libraries = ['fftw3f'],
+        include_dirs=[np.get_include(), '/usr/local/include'])
 
 if __name__=="__main__": 
     setup(name = 'pySpectrum',
