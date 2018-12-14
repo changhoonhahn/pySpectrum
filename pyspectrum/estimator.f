@@ -1,3 +1,372 @@
+ccc*******************************************************************
+c      subroutine bk_periodic(map1,map2,nside,step,ncut,nmax)
+ccc*******************************************************************
+c      integer nside,nsideD,Dim,nn(3),nmax,istep
+c      real, intent(in) :: map1w(:),map2w(:)
+c      parameter(Dim=3) 
+c      integer*8 planb,planf
+c      integer i, j, l, m, n, nk(0:2*nside),nbk(0:2*nside+1),iflag,irsd
+c      integer iseed, indx(nsideD), id, jd, ld, nmodes, ndim,k,ix,iy,iz
+cc      real mapk(nsideD,nmax),m1(2,nsideD), map1(nsideD), map2(nsideD)  
+c      real pow(nmax),I10,I12,I22,I13,I23,I33,P0,alpha
+c      real pow2(nmax), I12d,I13d,alphaSTD, poww(nmax)
+c      real, allocatable :: mapk(:,:),m1(:,:),map1(:),map2(:)
+c      real, allocatable :: m1xx(:,:),map1xx(:),map2xx(:)
+c      real, allocatable :: m1w(:,:),map1w(:),map2w(:)
+cc      real normk(nsideD,nmax), norm1(2,nsideD)
+c      real di, dj, dl, eightpi2, bi, step, bi2, biw
+c      real dist, bisp(nmax,nmax,nmax), q(nmax,nmax,nmax)
+c      real bisp2(nmax,nmax,nmax), q2(nmax,nmax,nmax)
+c      real bispw(nmax,nmax,nmax) 
+c      real*8 coun(nmax,nmax,nmax), avg, sum, sum2, avgw
+c      complex, allocatable :: dclr1(:,:,:),dclr2(:,:,:)
+c      complex, allocatable :: dclr3(:,:,:),dclr4(:,:,:)
+c      complex, allocatable :: dclr5(:,:,:),dclr6(:,:,:)
+c      integer nobj,ip,aexp,p,dpnp1,dpn,ibuf,lm,mcode,Ncut,ng,Ncuts
+c      common/discrete/I10,I12,I22,I13,I23,I33,P0,alpha
+c      common/discrete2/I12d,I13d,alphaSTD
+c      include '/usr/local/include/fftw3.f'
+c
+c      ncuts=ncut/int(step)
+c      nsideD=nside**Dim
+c      eightpi2 = 78.95683521
+c     
+c      allocate(map1(nside**Dim),map2(nside**Dim))
+c
+cc      write(*,*) 'Nbody/periodic (1) or data/cut-sky (2)?'
+cc      read(*,*)iflag
+c      call getarg(1,iflagstr)
+c      read(iflagstr,*)iflag 
+c
+cc         write(*,*) 'Fourier file :'
+cc         read(*,'(a)') filecoef
+cc         write(*,*) 'Bispectrum file :'
+cc         read(*,'(a)') filebisp
+c      call getarg(2,filecoef)
+c      call getarg(3,filebisp)
+c      call getarg(4,irsdstr) !redshift-space direction (1:x,2:y,3:z)
+c      read(irsdstr,*)irsd 
+c
+c      allocate(dclr1(nside/2+1,nside,nside))
+c      allocate(dclr2(nside/2+1,nside,nside))
+c      write(*,*)'memory allocated'
+cc      call inputNB(nside,Dim,filecoef,map1,map2,dclr1)
+c      call inputNB(nside,Dim,filecoef,map1,map2,dclr1,dclr2,
+c     $                map1xx,map2xx,irsd)
+c      deallocate(dclr1,dclr2)
+c      write(*,*)'input done and memory deallocated'
+c
+c      do l=1,nmax
+c         do j=1,nmax
+c            do i=1,nmax
+c               bisp(i,j,l) = 0.
+c               bisp2(i,j,l) = 0.
+c            enddo
+c         enddo
+c      enddo
+c      
+c      do i=0,2*nside
+c         nk(i)=0
+c      enddo
+c
+c      write(*,*) 'Find modes of amplitude |k|'
+c
+c      do i = 0, nside -1
+c         do j = 0, nside  -1
+c            do l = 0, nside  -1
+c               di = float(min(i,nside-i))
+c               dj = float(min(j,nside-j))
+c               dl = float(min(l,nside-l))
+c               dist = sqrt(di*di + dj*dj +dl*dl)
+c               nk(int(dist/step+0.5)) = nk(int(dist/step+0.5)) + 1 
+c            enddo 
+c         enddo 
+c      enddo 
+c      
+c      nbk(0) = 0 
+c      do i = 0, 2*nside
+c         nbk(i+1) = nbk(i) + nk(i)
+c         nk(i) = 0 
+c      enddo 
+c      
+c      write(*,*) 'Save coordinates'
+c  
+c      m = 0
+c      do i = 0, nside -1 
+c         do j = 0, nside -1
+c            do l = 0, nside -1
+c               di = float(min(i,nside-i))
+c               dj = float(min(j,nside-j))
+c               dl = float(min(l,nside-l))
+c               dist = sqrt(di*di + dj*dj +dl*dl)
+c               nk(int(dist/step+0.5)) = nk(int(dist/step+0.5)) + 1  
+c               n = nbk(int(dist/step+0.5)) + nk(int(dist/step+0.5))
+c               m = m+ 1
+c               indx(n) = m 
+c            enddo 
+c         enddo 
+c      enddo 
+c
+c      write(*,*) 'Calculate k maps'
+c
+c      ndim=3
+c
+c      allocate(m1(2,nsideD),mapk(nsideD,nmax),m1w(2,nsideD))
+c      do i = ncuts, nmax
+c         do n = 1, nsideD 
+c            m1(1,n) = 0.
+c            m1(2,n) = 0.
+c         enddo 
+c         nmodes = 0
+c         do n = nbk(i)+1, nbk(i+1)
+c            m1(1,indx(n)) = map1(indx(n))
+c            m1(2,indx(n)) = map2(indx(n))
+c            nmodes =nmodes +1 
+c         enddo 
+c         call fftwnd_f77_one(planf,m1,0)
+c         avg = 0.d0 
+c         do n = 1, nsideD
+c            avg = avg + dble(m1(1,n))*dble(m1(1,n))
+c            mapk(n,i) = m1(1,n)
+c         enddo
+c         pow(i)=real(avg)/float(nsided)/float(nmodes)
+c      enddo
+c      
+c      deallocate(m1,map1)
+c
+c      write(*,*) 'Read counts'
+c
+c      open(unit=2,status='old',form='unformatted',file=filecounts)
+c      read(2) coun
+c      close(2)
+c
+c      write(*,*) 'counts were read'
+c      allocate(m1xx(2,nsideD))
+c
+c      write(*,*) 'Compute bisp monopole and quadrupole!'
+c      
+c      
+c      do l = ncuts, nmax !keep ffts in outer loop
+c         do n = 1, nsideD 
+c            m1xx(1,n) = 0.        
+c            m1xx(2,n) = 0.        
+c         enddo
+c         nmodes = 0
+c         do n = nbk(l)+1, nbk(l+1)
+c            m1xx(1,indx(n)) = map1xx(indx(n))
+c            m1xx(2,indx(n)) = map2xx(indx(n))
+c            nmodes = nmodes + 1 
+c         enddo 
+c         call fftwnd_f77_one(planf,m1xx,0)
+c         avg = 0.d0 
+c         do n = 1, nsideD
+c            avg = avg + dble(m1xx(1,n))*dble(mapk(n,l))
+c         enddo
+c         pow2(l)=real(avg)/float(nsided)/float(nmodes) !quadrupole power
+c
+c         do j = ncuts, l
+c            do i = max(ncuts,l-j), j
+c               sum = 0.d0 
+c               sum2 = 0.d0 
+c               do n = 1, nsideD
+c                  sum = sum 
+c     $            + dble(mapk(n,i))*dble(mapk(n,j))*dble(mapk(n,l))
+c                  sum2 = sum2 
+c     $            + dble(mapk(n,i))*dble(mapk(n,j))*dble(m1xx(1,n))
+c               enddo
+c               bi=real(sum/coun(i,j,l))
+c               bi2=real(sum2/coun(i,j,l))
+c               bisp(i,j,l)=bi
+c               q(i,j,l)=bi/(pow(i)*pow(j)+pow(j)*pow(l)
+c     $                 +pow(l)*pow(i))
+c               bisp2(i,j,l)=bi2
+c               q2(i,j,l)=bi2/(pow(i)*pow(j)+pow(j)*pow(l)
+c     $                 +pow(l)*pow(i))
+c             enddo
+c         enddo 
+c      enddo          
+c      
+c      open(unit=7,file=filebisp,status='unknown',form='formatted')
+c      write(*,*) 'output'
+c      do l = ncuts, nmax
+c         do j = ncuts, l
+c            do i = ncuts,j
+c               fac=1.
+c               if(coun(i,j,l).ne.0.d0) then 
+c                  if(j.eq.l .and. i.eq.j) fac=6.
+c                  if(i.eq.j .and. j.ne.l) fac=2.
+c                  if(i.eq.l .and. l.ne.j) fac=2.
+c                  if(j.eq.l .and. l.ne.i) fac=2.
+c                  coun(i,j,l)=coun(i,j,l)/dble(fac*float(nsided))
+c                  if (iflag.eq.1) then 
+c                  write(7,1000) int(step)*l,int(step)*j,int(step)*i,
+c     $                 pow(l),pow(j),pow(i),bisp(i,j,l),q(i,j,l),
+c     $                 pow2(l),pow2(j),pow2(i),bisp2(i,j,l),q2(i,j,l),
+c     $                 real(coun(i,j,l))
+c                  else
+c                  write(7,1000) int(step)*l,int(step)*j,int(step)*i,
+c     $                 pow(l),pow(j),pow(i),bisp(i,j,l),q(i,j,l),
+c     $                 pow2(l),pow2(j),pow2(i),bisp2(i,j,l),q2(i,j,l),
+c     $                 real(coun(i,j,l)),bispw(i,j,l)                  
+c                  endif
+c               endif
+c            enddo
+c         enddo
+c      enddo 
+c      close(7)
+c      return    
+c      end 
+cc*******************************************************************
+      subroutine bk_counts(coun,nside,step,ncut,nmax)
+cc*******************************************************************
+      integer, intent(in) :: nmax,nside,ncut
+      real, intent(in) :: step 
+      real*8, intent(inout) :: coun(nmax,nmax,nmax)
+      integer*8 planf
+      integer Dim,nsideD
+      parameter(Dim=3) 
+      integer i,j,l,m,n,ncuts
+      integer, allocatable :: indx(:)
+      real di,dj,dl,dist
+      real*8 sumn
+      integer nk(0:2*nside), nbk(0:2*nside+1)
+      real, allocatable :: normk(:,:),norm1(:,:)
+      include '/usr/local/include/fftw3.f'
+
+      ncuts=ncut/int(step)
+      nsideD=nside**Dim
+      allocate(indx(nsideD))
+      do i=0,2*nside
+         nk(i)=0
+      enddo
+
+c     Find modes of amplitude |k|
+      write(*,*) 'Find modes of amplitude |k|'
+      do i = 0, nside-1
+         do j = 0, nside-1
+            do l = 0, nside-1
+               di = float(min(i,nside-i))
+               dj = float(min(j,nside-j))
+               dl = float(min(l,nside-l))
+               dist = sqrt(di*di + dj*dj +dl*dl)
+               nk(int(dist/step+0.5)) = nk(int(dist/step+0.5)) + 1 
+            enddo
+         enddo
+      enddo
+      
+      nbk(0) = 0 
+      do i = 0,2*nside
+         nbk(i+1) = nbk(i) + nk(i)
+         nk(i) = 0 
+      enddo 
+      
+c     Save coordinates  
+      write(*,*) 'Save coordinates'
+      m = 0
+      do i = 0, nside -1 
+         do j = 0, nside -1
+            do l = 0, nside -1
+               di = float(min(i,nside-i))
+               dj = float(min(j,nside-j))
+               dl = float(min(l,nside-l))
+               dist = sqrt(di*di + dj*dj +dl*dl)
+               nk(int(dist/step+0.5)) = nk(int(dist/step+0.5)) + 1  
+               n = nbk(int(dist/step+0.5)) + nk(int(dist/step+0.5))
+               m = m+ 1
+               indx(n) = m 
+            enddo 
+         enddo 
+      enddo 
+      
+c     calculate k maps 
+      write(*,*) 'Calculate k maps'
+      allocate(norm1(2,nsideD),normk(nsideD,nmax))
+      write(*,*) 'making plan'
+      call sfftw_plan_dft_3d(planf,nside,nside,nside,norm1,norm1,
+     &                       FFTW_FORWARD, FFTW_ESTIMATE)
+
+      write(*,*) 'executing plan'
+      do i = Ncut/int(step), nmax
+         do n = 1, nsideD 
+            norm1(1,n) = 0.
+            norm1(2,n) = 0.
+         enddo 
+         do n = nbk(i)+1, nbk(i+1)
+            norm1(1,indx(n)) = 1.
+         enddo 
+         call sfftw_execute_dft(planf,norm1,norm1)
+c      call fftwnd_f77_one(planf,norm1,0)
+         do n = 1, nsideD
+            normk(n,i) = norm1(1,n)
+         enddo
+      enddo
+      call sfftw_destroy_plan(planf)
+
+      write(*,*) 'Final sum'
+      do l = ncuts, nmax !keep ffts in outer loop
+         do j = ncuts, l
+            do i = max(ncuts,l-j), j
+               sumn = 0.d0 
+               do n = 1, nsideD
+        sumn = sumn + dble(normk(n,i))*dble(normk(n,j))*dble(normk(n,l))
+               enddo
+               coun(i,j,l)=sumn
+             enddo
+         enddo 
+      enddo          
+      return 
+      end
+cc*******************************************************************
+      subroutine pk_periodic(dtl,avgk,avgP,Ngrid,Nbin)
+cc*******************************************************************
+      integer, intent(in) :: Ngrid,Nbin
+      complex, intent(inout) :: dtl(Ngrid/2+1,Ngrid,Ngrid)
+      real*8, intent(inout) :: avgk(Nbin),avgP(Nbin)
+      real*8 co(Nbin)
+      real*8 shot
+      real akx,aky,akz,phys_nyq
+      complex ct
+
+      do 10 i=1,Nbin
+         avgk(i)=0.d0
+         avgP(i)=0.d0
+         co(i)=0.d0
+ 10   continue
+
+      do 100 iz=1,Ngrid
+         icz=mod(Ngrid+1-iz,Ngrid)+1
+         rkz=akz*float(mod(iz+Ngrid/2-2,Ngrid)-Ngrid/2+1) 
+         do 100 iy=1,Ngrid
+            icy=mod(Ngrid+1-iy,Ngrid)+1
+            rky=aky*float(mod(iy+Ngrid/2-2,Ngrid)-Ngrid/2+1)
+            do 100 ix=1,Ngrid
+               icx=mod(Ngrid+1-ix,Ngrid)+1
+               rkx=akx*float(mod(ix+Ngrid/2-2,Ngrid)-Ngrid/2+1)
+               rk=sqrt(rkx**2+rky**2+rkz**2)
+               imk=nint(Nbin*rk/phys_nyq)  
+
+               if(imk.le.Nbin .and. imk.ne.0)then
+                  co(imk)=co(imk)+1.d0
+                  if (ix.le.Ngrid/2+1) then 
+                     ct=dtl(ix,iy,iz)
+                  else !use cc
+                     ct=dtl(icx,icy,icz)
+                  endif
+                  pk=(cabs(ct))**2
+                  avgk(imk)=avgk(imk)+dble(rk)
+                  avgP(imk)=avgP(imk)+dble(pk)
+               end if
+ 100        continue
+c******************************************************************
+      shot=1.d0/dble(akx*aky*akz)/dble(Npar)
+      do 110 Ibin=1,Nbin
+         if(co(Ibin).gt.0.)then
+            avgk(Ibin)=avgk(Ibin)/co(Ibin)  
+            avgP(Ibin)=avgP(Ibin)/co(Ibin)/dble(akx*aky*akz)
+         endif
+ 110  continue
+      return 
+      end
 cc*******************************************************************
       subroutine ffting(dtl,N,Ngrid)
 cc*******************************************************************
@@ -12,8 +381,6 @@ cc*******************************************************************
       call sfftw_execute_dft(planf,dtl,dtl)
       write(*,*)'destroy plan'
       call sfftw_destroy_plan(planf)
-c      write(*,*)'doing fcomb'
-c      call fcomb(dtl,N,Ngrid)
       return 
       end 
 cc*******************************************************************
@@ -25,11 +392,6 @@ cc*******************************************************************
       real, dimension(2*Ngrid,Ngrid,Ngrid), intent(inout) :: dtl
 c      ks = 2pi/Ngrid
 c      kf = 2pi/Lbox 
-c      do 1 iz=1,Ngrid
-c       do 1 iy=1,Ngrid
-c        do 1 ix=1,2*Ngrid
-c1        dtl(ix,iy,iz)=0.
-
       do 2 i=1,Np
        rx=kf_ks*r(1,i)+1.
        ry=kf_ks*r(2,i)+1.

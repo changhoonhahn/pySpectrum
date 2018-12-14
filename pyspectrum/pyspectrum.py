@@ -8,7 +8,7 @@ import estimator as fEstimate
 from . import util as UT
 
 
-def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True, test=None): 
+def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True): 
     ''' Put galaxies in a grid and FFT it. This function is essentially a 
     wrapper for estimator.f and does the same thing as roman's 
     zmapFFTil4_aniso_gen.f 
@@ -36,7 +36,6 @@ def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True, test=Non
     delta.real = _delta[::2,:,:] 
     delta.imag = _delta[1::2,:,:] 
     if not silent: print('galaxy positions assigned to grid') 
-    if test == 'assign': return delta 
 
     # FFT delta (checked with fortran code, more or less matches)
     if fft == 'pyfftw': 
@@ -54,16 +53,17 @@ def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True, test=Non
         ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64, order='F') 
         fEstimate.ffting(delta, Ng, Ngrid) 
         ifft_delta[:,:,:] = delta[:,:,:]
-    if test == 'fft': return ifft_delta 
 
     if not silent: print('galaxy grid FFTed') 
     # fcombine 
     fEstimate.fcomb(ifft_delta,Ng,Ngrid) 
     if not silent: print('fcomb complete') 
-    delt = ifft_delta[:Ngrid/2+1,:,:]
-    if test == 'fcomb': return delt 
-    
-    # reflect half field
+    return ifft_delta[:Ngrid/2+1,:,:]
+
+
+def reflect_delta(delt, Ngrid=360, silent=True): 
+    ''' reflect half field that's output from the code 
+    '''
     if not silent: print('reflecting the half field') 
     delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64)
     # i = 0 - Ngrid // 2 (confirmed correct) 
@@ -93,7 +93,6 @@ def Pk_periodic(delta, Lbox=None):
     '''
     Ngrid = delta.shape[0]
     Nbins = Ngrid / 2 
-    
     if Lbox is None: 
         kf = 1. # in units of fundamental mode 
     else: 
@@ -114,6 +113,22 @@ def Pk_periodic(delta, Lbox=None):
         if Nk > 0: 
             ks[i-1] = np.sum(rk[inkbin])/float(Nk)
             p0k[i-1] = np.sum(np.absolute(delta[inkbin])**2)/float(Nk)/kf**3
+
+    return ks, (2.*np.pi)**3 * p0k 
+
+
+def Pk_periodic_f77(delta, Lbox=None):
+    ''' calculate the powerspecturm for periodic box given 3d fourier density grid. 
+    output k is in units of k_fundamental 
+    '''
+    Ngrid = delta.shape[1]
+    Nbins = Ngrid / 2 
+    # allocate arrays
+    dtl = np.zeros((Ngrid//2+1, Ngrid, Ngrid), dtype=np.complex64, order='F') 
+    dtl[:,:,:] = delta[:,:,:]
+    ks = np.zeros(Nbins, dtype=np.float64, order='F') 
+    p0k = np.zeros(Nbins, dtype=np.float64, order='F') 
+    fEstimate.pk_periodic(dtl,ks,p0k,Ngrid,Nbins)
     return ks, (2.*np.pi)**3 * p0k 
 
 
@@ -266,6 +281,42 @@ def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silen
         f.write_record(counts) # double prec 
         f.close() 
         #pickle.dump(counts, open(f_counts, 'wb'))
+    return counts 
+
+
+def Bk123_periodic_f77(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=True): 
+    ''' Calculate the bispectrum for periodic box given delta(k) 3D field.
+    '''
+    raise NotImplementedError
+
+
+def _counts_Bk123_f77(Ngrid=360, Nmax=40, Ncut=3, step=3, silent=True): 
+    ''' return bispectrum normalization 
+    @chh explain nmax, ncut, and step below 
+    '''
+    f_counts = ''.join([UT.dat_dir(), 'counts', 
+        '.Ngrid', str(Ngrid),
+        '.Nmax', str(Nmax),
+        '.Ncut', str(Ncut),
+        '.step', str(step),
+        '.fort77']) 
+
+    if os.path.isfile(f_counts): 
+        f = FortranFile(f_counts, 'r') 
+        cnts = f.read_reals(dtype=np.float64) 
+        counts = np.reshape(cnts, (Nmax, Nmax, Nmax), order='F')
+        f.close() 
+    else: 
+        if not silent: 
+            print('-- %s does not exist --' % f_counts) 
+            print('-- computing %s --' % f_counts) 
+        counts = np.zeros((40,40,40), dtype=np.float64, order='F')  
+        fEstimate.bk_counts(counts,Ngrid,float(step),Ncut,Nmax) 
+
+        # save to file  
+        f = FortranFile(f_counts, 'w') 
+        f.write_record(counts) # double prec 
+        f.close() 
     return counts 
 
 
