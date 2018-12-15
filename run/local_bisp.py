@@ -26,7 +26,7 @@ if __name__=="__main__":
             delta_fft, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=2, silent=False) 
     print('Bispectrum calculation takes %f mins' % ((time.time() - t0)/60.))
     # save to file 
-    hdr = '# pyspectrum bispectrum calculation test. k_f = 2pi/3600 \n'
+    hdr = 'pyspectrum bispectrum calculation test. k_f = 2pi/3600'
     f_b123 = ''.join([UT.dat_dir(), 'pySpec.B123.BoxN1.mock.Ngrid360', 
         '.Ngrid360', 
         '.Nmax40', 
@@ -39,12 +39,12 @@ if __name__=="__main__":
 
     _i, _j, _l, _b123, _q123 = np.loadtxt(''.join([UT.dat_dir(), 'bisp.mbp.BoxN1.mock.Ngrid360']), 
             unpack=True, usecols=[0,1,2,6,7]) 
-
     print b123[:10]
     print _b123[:10]
-
-    print q123[:10]
+    print round(q123[:10],5) 
     print _q123[:10]
+    assert np.allclose(b123, _b123) 
+    assert np.allclose(q123, _q123) 
 
     #f = open(f_b123, 'w') 
     #f.write(hdr) 

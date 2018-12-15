@@ -134,6 +134,8 @@ def Pk_periodic_f77(delta, Lbox=None):
 
 def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, silent=True): 
     ''' Calculate the bispectrum for periodic box given delta(k) 3D field.
+    i,j,l are in units of k_fundamental (2pi/Lbox) 
+    b123 is in units of 1/kf^3/(2pi)^3
     '''
     Ngrid = delta.shape[0]
     

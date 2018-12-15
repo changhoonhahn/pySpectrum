@@ -40,6 +40,7 @@ if __name__=="__main__":
     delta2 = pySpec.FFTperiodic(xyz, fft='fortran', Lbox=2600, Ngrid=360, silent=False) 
     delta_fft2 = pySpec.reflect_delta(delta2, Ngrid=360) 
     print('--fortran: %f sec' % ((time.time() - t0)/60.)) 
+
     '''
     t0 = time.time() # 
     k0, p0k0 = pySpec.Pk_periodic(delta_fft0, Lbox=2600) 
@@ -66,16 +67,16 @@ if __name__=="__main__":
     fig.savefig(''.join([UT.fig_dir(), 'pk_test.png']), bbox_inches='tight') 
     '''
 
-    _,_,_, bk = pySpec.Bk123_periodic(delta_fft0, Nmax=10, Ncut=3, step=3, fft_method='pyfftw') 
-    print bk 
-    _,_,_, bk_ref = np.loadtxt(''.join([UT.dat_dir(), 'BISP.BoxN1.mock.Ngrid360']), 
-            unpack=True, usecols=[0,1,2,3]) 
-    print bk_ref
+    t0 = time.time() # ~0.090432 sec
+    _,_,_, bk, qk = pySpec.Bk123_periodic(delta_fft0, Nmax=40, Ncut=3, step=3, fft_method='pyfftw') 
+    print('--python bk: %f sec' % ((time.time() - t0)/60.)) 
+    _,_,_, bk_ref, qk_ref = np.loadtxt(''.join([UT.dat_dir(), 'BISP.BoxN1.mock.Ngrid360']), 
+            unpack=True, usecols=[0,1,2,6,7]) 
 
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
-    sub.scatter(np.arange(len(bk)), bk, c='C0', s=5) 
-    sub.scatter(np.arange(len(bk_ref)), bk_ref, c='k', s=5) 
+    sub.scatter(np.arange(len(bk)), qk, c='C0', s=5) 
+    sub.scatter(np.arange(len(bk_ref)), qk_ref, c='k', s=5) 
     sub.set_ylabel('$B(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_xlabel('Triangle Index', fontsize=25) 
     sub.set_xlim([0, len(bk)]) 
