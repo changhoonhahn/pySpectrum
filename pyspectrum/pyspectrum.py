@@ -107,14 +107,16 @@ def Pk_periodic(delta, Lbox=None):
     
     ks = np.zeros(Nbins) 
     p0k = np.zeros(Nbins) 
+    nks = np.zeros(Nbins) 
     for i in np.arange(1, Nbins+1): 
         inkbin = (irk == i) 
         Nk = np.sum(inkbin) 
         if Nk > 0: 
             ks[i-1] = np.sum(rk[inkbin])/float(Nk)
             p0k[i-1] = np.sum(np.absolute(delta[inkbin])**2)/float(Nk)/kf**3
+            nks[i-1] = float(Nk) 
 
-    return ks, (2.*np.pi)**3 * p0k 
+    return ks, (2.*np.pi)**3 * p0k, nks
 
 
 def Pk_periodic_f77(delta, Lbox=None):
