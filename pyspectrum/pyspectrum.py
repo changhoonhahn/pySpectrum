@@ -189,10 +189,15 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads
     if not silent: print("--- calculating B(k1,k2,k3) ---") 
     #bisp = np.zeros((Nmax, Nmax, Nmax), dtype=float) #default double prec
     i_arr, j_arr, l_arr = [], [], []
-    b123_arr, q123_arr = [], [] 
+    b123_arr, q123_arr, cnts_arr = [], [], [] 
     for i in range(Ncut//step, Nmax+1): 
         for j in range(Ncut//step, i+1):
             for l in range(max(i-j, Ncut//step), j+1):
+                fac = 1. 
+                if (j == l) and (i == j): fac=6.
+                if (i == j) and (j != l): fac=2.
+                if (i == l) and (l != j): fac=2.
+                if (j == l) and (l != i): fac=2.
                 if counts[i-1,j-1,l-1] > 0: 
                     i_arr.append(i) 
                     j_arr.append(j) 
@@ -203,21 +208,21 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads
                             deltaKshellX[i].ravel(), 
                             deltaKshellX[j].ravel(), 
                             deltaKshellX[l].ravel())
-                    #print bisp_ijl
                     b123_arr.append(bisp_ijl/counts[i-1,j-1,l-1]) 
                     q123_arr.append(bisp_ijl/counts[i-1,j-1,l-1]/(p0k[i-1]*p0k[j-1] + p0k[j-1]*p0k[l-1] + p0k[l-1]*p0k[i-1]))
-                    #print bisp_ijl
-                    #print bisp_ijl/counts[i-1,j-1,l-1]
+                    cnts_arr.append(counts[i-1,j-1,l-1]/(fac*float(Ngrid**3)))
                 else: 
                     b123_arr.append(0.) 
                     q123_arr.append(0.) 
+                    cnts_arr.append(0.) 
 
     i_arr = np.array(i_arr) * step 
     j_arr = np.array(j_arr) * step 
     l_arr = np.array(l_arr) * step 
     b123_arr = np.array(b123_arr)
     q123_arr = np.array(q123_arr) 
-    return i_arr, j_arr, l_arr, b123_arr, q123_arr
+    cnts_arr = np.array(cnts_arr)
+    return i_arr, j_arr, l_arr, b123_arr, q123_arr, cnts_arr 
 
 
 def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=True): 
