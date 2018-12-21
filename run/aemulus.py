@@ -1,7 +1,7 @@
 #!/bin/python 
 '''
 
-calculate the powerspectrum and bipsectrum for QPM halo box 
+calculate the powerspectrum and bipsectrum for Aemulus halo box 
 
 '''
 import os
@@ -31,20 +31,20 @@ mpl.rcParams['ytick.major.size'] = 5
 mpl.rcParams['ytick.major.width'] = 1.5
 mpl.rcParams['legend.frameon'] = False
 
-    
-f_halo = ''.join([UT.dat_dir(), 'qpm/halo_ascii.dat'])
-f_hdf5 = ''.join([UT.dat_dir(), 'qpm/halo_ascii.mlim1e13.hdf5'])
-f_fftw = ''.join([UT.dat_dir(), 'qpm/pySpec.fft.halo.mlim1e13', 
+
+f_halo = ''.join([UT.dat_dir(), 'aemulus/aemulus_test002_halos.dat']) 
+f_hdf5 = ''.join([UT.dat_dir(), 'aemulus/aemulus_test002_halos.mlim1e13.hdf5'])
+f_fftw = ''.join([UT.dat_dir(), 'aemulus/pySpec.fft.halo.mlim1e13', 
     '.Ngrid360', 
     '.dat']) 
-f_pell = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13', 
+f_pell = ''.join([UT.dat_dir(), 'aemulus/pySpec.Plk.halo.mlim1e13', 
     '.Ngrid360', 
     '.dat']) 
-f_pnkt = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13', 
+f_pnkt = ''.join([UT.dat_dir(), 'aemulus/pySpec.Plk.halo.mlim1e13', 
     '.Ngrid360', 
     '.nbodykit', 
     '.dat']) 
-f_b123 = ''.join([UT.dat_dir(), 'qpm/pySpec.B123.halo.mlim1e13', 
+f_b123 = ''.join([UT.dat_dir(), 'aemulus/pySpec.B123.halo.mlim1e13', 
     '.Ngrid360', 
     '.Nmax40', 
     '.Ncut3', 
@@ -52,11 +52,8 @@ f_b123 = ''.join([UT.dat_dir(), 'qpm/pySpec.B123.halo.mlim1e13',
     '.pyfftw', 
     '.dat']) 
 
-Lbox = 1024. 
-kf = 2.*np.pi/Lbox
-
 if not os.path.isfile(f_hdf5):  
-    mh, x, y, z, vx, vy, vz = np.loadtxt(f_halo, unpack=True, skiprows=1, usecols=[0,1,2,3,4,5,6]) 
+    x, y, z, vx, vy, vz, mh = np.loadtxt(f_halo, unpack=True, skiprows=1, usecols=[0,1,2,3,4,5,6]) 
     xyz = np.zeros((len(x),3)) 
     xyz[:,0] = x
     xyz[:,1] = y 
@@ -173,7 +170,7 @@ sub.set_yscale('log')
 sub.set_xlabel('$k$', fontsize=25) 
 sub.set_xlim([3e-3, 1.]) 
 sub.set_xscale('log') 
-fig.savefig(''.join([UT.dat_dir(), 'qpm/p0k.png']), bbox_inches='tight')
+fig.savefig(''.join([UT.dat_dir(), 'aemulus/p0k.png']), bbox_inches='tight')
 
 # plot bispectrum shape triangle plot 
 i_k, j_k, l_k, b123, q123, counts = np.loadtxt(f_b123, unpack=True, skiprows=1, usecols=[0,1,2,3,4,5]) 
@@ -191,7 +188,7 @@ cbar = plt.colorbar(bplot, orientation='vertical')
 sub.set_title(r'$Q(k_1, k_2, k_3)$ QPM halo catalog', fontsize=25)
 sub.set_xlabel('$k_3/k_1$', fontsize=25)
 sub.set_ylabel('$k_2/k_1$', fontsize=25)
-fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123_shape.png']), bbox_inches='tight')
+fig.savefig(''.join([UT.dat_dir(), 'aemulus/Q123_shape.png']), bbox_inches='tight')
 
 # plot bispectrum amplitude 
 fig = plt.figure(figsize=(10,5))
@@ -201,4 +198,4 @@ sub.set_xlabel(r'$k_1 > k_2 > k_3$ triangle index', fontsize=25)
 sub.set_xlim([0, len(q123)]) 
 sub.set_ylabel(r'$Q(k_1, k_2, k_3)$', fontsize=25) 
 sub.set_ylim([0., 1.]) 
-fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123.png']), bbox_inches='tight')
+fig.savefig(''.join([UT.dat_dir(), 'aemulus/Q123.png']), bbox_inches='tight')
