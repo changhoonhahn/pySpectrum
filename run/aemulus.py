@@ -52,8 +52,14 @@ f_b123 = ''.join([UT.dat_dir(), 'aemulus/pySpec.B123.halo.mlim1e13',
     '.pyfftw', 
     '.dat']) 
 
+Lbox=1050.
+kf = 2.*np.pi/Lbox
+
 if not os.path.isfile(f_hdf5):  
     x, y, z, vx, vy, vz, mh = np.loadtxt(f_halo, unpack=True, skiprows=1, usecols=[0,1,2,3,4,5,6]) 
+    print('%f < x < %f' % (x.min(), x.max()))
+    print('%f < y < %f' % (y.min(), y.max()))
+    print('%f < z < %f' % (z.min(), z.max()))
     xyz = np.zeros((len(x),3)) 
     xyz[:,0] = x
     xyz[:,1] = y 
