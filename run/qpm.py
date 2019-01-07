@@ -237,17 +237,53 @@ def QPMvsAemulus():
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
     i_k, j_k, l_k, b123, q123, counts = np.loadtxt(f_b123('aemulus'), unpack=True, skiprows=1, usecols=[0,1,2,3,4,5]) 
-    #klim = (i_k*kf_qpm < 0.3) & (j_k*kf_qpm < 0.3) & (l_k*kf_qpm < 0.3)
-    klim = np.ones(len(b123)).astype(bool)
-    sub.scatter(range(np.sum(klim)), (2*np.pi)**6 * b123[klim]/kf_aem**6, c='k', s=2, label='Aemulus') 
+    #klim = np.ones(len(b123)).astype(bool)
+    #0.03 h Mpc−1 ≤ k ≤ 0.22 h Mpc
+    klim = ((i_k*kf_aem <= 0.22) & (i_k*kf_aem >= 0.03) &
+            (j_k*kf_aem <= 0.22) & (j_k*kf_aem >= 0.03) & 
+            (l_k*kf_aem <= 0.22) & (l_k*kf_aem >= 0.03)) 
+    i_k = i_k[klim]
+    j_k = j_k[klim]
+    l_k = l_k[klim]
+    b123 = (2*np.pi)**6 * b123[klim]/kf_aem**6
+   
+    _b123 = [] 
+    l_usort = np.sort(np.unique(l_k))
+    for l in l_usort: 
+        j_usort = np.sort(np.unique(j_k[l_k == l]))
+        for j in j_usort: 
+            i_usort = np.sort(np.unique(i_k[(l_k == l) & (j_k == j)]))
+            for i in i_usort: 
+                _b123.append(b123[(i_k == i) & (j_k == j) & (l_k == l)])
+    sub.scatter(range(np.sum(klim)), _b123, c='k', s=5, label='Aemulus') 
+    sub.plot(range(np.sum(klim)), _b123, c='k') 
+
     i_k, j_k, l_k, b123, q123, counts = np.loadtxt(f_b123('qpm'), unpack=True, skiprows=1, usecols=[0,1,2,3,4,5]) 
+    #klim = np.ones(len(b123)).astype(bool)
     #klim = (i_k*kf_aem < 0.3) & (j_k*kf_aem < 0.3) & (l_k*kf_aem < 0.3)
-    klim = np.ones(len(b123)).astype(bool)
-    sub.scatter(range(np.sum(klim)), (2*np.pi)**6 * b123[klim]/kf_qpm**6, c='C1', s=2, label='QPM') 
-    sub.legend(loc='upper right', fontsize=20) 
+    klim = ((i_k*kf_qpm <= 0.22) & (i_k*kf_qpm >= 0.03) &
+            (j_k*kf_qpm <= 0.22) & (j_k*kf_qpm >= 0.03) & 
+            (l_k*kf_qpm <= 0.22) & (l_k*kf_qpm >= 0.03)) 
+    i_k = i_k[klim]
+    j_k = j_k[klim]
+    l_k = l_k[klim]
+    b123 = (2*np.pi)**6 * b123[klim]/kf_qpm**6
+
+    _b123 = [] 
+    l_usort = np.sort(np.unique(l_k))
+    for l in l_usort: 
+        j_usort = np.sort(np.unique(j_k[l_k == l]))
+        for j in j_usort: 
+            i_usort = np.sort(np.unique(i_k[(l_k == l) & (j_k == j)]))
+            for i in i_usort: 
+                _b123.append(b123[(i_k == i) & (j_k == j) & (l_k == l)])
+    sub.scatter(range(np.sum(klim)), _b123, c='C1', s=5, label='QPM') 
+    sub.plot(range(np.sum(klim)), _b123, c='C1') 
+    sub.legend(loc='upper right', markerscale=4, handletextpad=0., fontsize=20) 
     sub.set_ylabel('$B(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_yscale('log') 
-    sub.set_xlabel('$k_1 > k_2 > k_3$ triangle indices', fontsize=25) 
+    sub.set_ylim([1e8, 6e9]) 
+    sub.set_xlabel(r'$k_1 \le k_2 \le k_3$ triangle indices', fontsize=25) 
     sub.set_xlim([0, np.sum(klim)])#len(b123)]) 
     fig.savefig(''.join([UT.dat_dir(), 'qpm/B123_qpm_aemulus.png']), bbox_inches='tight')
 
