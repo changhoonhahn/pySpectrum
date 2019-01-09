@@ -387,6 +387,37 @@ c
       return
       end
 cc*******************************************************************
+      subroutine build_quad(dclr1,dclr2,irsd,Ngrid)
+cc*******************************************************************
+      integer ix,ikx,iy,iky,iz,ikz
+      real akx,aky,akz,rk,amu
+      integer, intent(in) :: irsd,Ngrid
+      complex, intent(in) :: dclr1(Ngrid/2+1,Ngrid,Ngrid)
+      complex, intent(inout) :: dclr2(Ngrid/2+1,Ngrid,Ngrid)
+      
+      do 100 iz=1,Ngrid !build quadrupole
+         ikz=mod(iz+Ngrid/2-2,Ngrid)-Ngrid/2+1
+         do 100 iy=1,Ngrid
+            iky=mod(iy+Ngrid/2-2,Ngrid)-Ngrid/2+1
+            do 100 ix=1,Ngrid/2+1
+               ikx=mod(ix+Ngrid/2-2,Ngrid)-Ngrid/2+1
+               rk=sqrt(float(ikx**2+iky**2+ikz**2))
+               if(rk.gt.0.)then
+                  if (irsd.eq.3) then 
+                     amu=float(ikz)/rk
+                  elseif (irsd.eq.2) then
+                     amu=float(iky)/rk
+                  elseif (irsd.eq.1) then
+                     amu=float(ikx)/rk !unit vectors
+                  else
+                     stop
+                  endif   
+                  dclr2(ix,iy,iz)=(7.5*amu**2-2.5)*dclr1(ix,iy,iz) !weight by 5*Leg2
+               end if
+ 100  continue
+      return 
+      end 
+cc*******************************************************************
       subroutine fcomb(dcl,N,Ngrid)
 cc*******************************************************************
       parameter(tpi=6.283185307d0)

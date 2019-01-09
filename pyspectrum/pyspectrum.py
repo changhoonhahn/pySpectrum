@@ -9,8 +9,8 @@ from . import util as UT
 
 
 def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True): 
-    ''' Put galaxies in a grid and FFT it. This function is essentially a 
-    wrapper for estimator.f and does the same thing as roman's 
+    ''' Put galaxies in a grid and FFT it. This function wraps some of
+    the functions in estimator.f and does the same thing as roman's 
     zmapFFTil4_aniso_gen.f 
     '''
     kf_ks = np.float32(float(Ngrid) / Lbox)
@@ -59,6 +59,22 @@ def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True):
     fEstimate.fcomb(ifft_delta,Ng,Ngrid) 
     if not silent: print('fcomb complete') 
     return ifft_delta[:Ngrid/2+1,:,:]
+
+
+def delta_quadrupole(delt, Ngrid=360, rsd=None, silent=True): 
+    ''' given half field build quadrupole (what's done in inputNB) 
+    '''
+    if rsd is None: raise ValueError("choose rsd direction 'x', 'y', or 'z'") 
+    irsd = {'x': 1, 'y': 2, 'z': 3} 
+    i_rsd = irsd[rsd]
+    if not silent: print('building quadrupole') 
+    _delt1 = np.zeros((Ngrid//2+1, Ngrid, Ngrid), dtype=np.complex64, order='F') 
+    _delt2 = np.zeros((Ngrid//2+1, Ngrid, Ngrid), dtype=np.complex64, order='F') 
+    _delt1[:,:,:] = delt[:,:,:]
+
+    fEstimate.build_quad(_delt1, _delt2, i_rsd, Ngrid) 
+    return _delt2
+    #return reflect_delta(delt, Ngrid=Ngrid, silent=silent) 
 
 
 def reflect_delta(delt, Ngrid=360, silent=True): 
