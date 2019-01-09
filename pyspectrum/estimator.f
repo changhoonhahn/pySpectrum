@@ -13,7 +13,8 @@ cc*******************************************************************
       real*8 sumn
       integer nk(0:2*nside), nbk(0:2*nside+1)
       real, allocatable :: normk(:,:),norm1(:,:)
-      include '/usr/local/include/fftw3.f'
+c      include '/usr/local/include/fftw3.f'
+      include '../dat/fftw3.f'
 
       ncuts=ncut/int(step)
       nsideD=nside**Dim
@@ -155,7 +156,8 @@ cc*******************************************************************
       integer, intent(in) :: N,Ngrid
       complex, intent(inout) :: dtl(Ngrid,Ngrid,Ngrid)
       integer*8 planf
-      include '/usr/local/include/fftw3.f'
+c      include '/usr/local/include/fftw3.f'
+      include '../dat/fftw3.f'
       write(*,*)'making plan'
       call sfftw_plan_dft_3d(planf,Ngrid,Ngrid,Ngrid,dtl,dtl, 
      &          FFTW_BACKWARD,FFTW_ESTIMATE)

@@ -31,6 +31,7 @@ mpl.rcParams['ytick.major.size'] = 5
 mpl.rcParams['ytick.major.width'] = 1.5
 mpl.rcParams['legend.frameon'] = False
 
+
 def makeSpectra():     
     f_halo = ''.join([UT.dat_dir(), 'qpm/halo_ascii.dat'])
     f_hdf5 = ''.join([UT.dat_dir(), 'qpm/halo_ascii.mlim1e13.hdf5'])
@@ -129,7 +130,7 @@ def makeSpectra():
         print("putting it into mesh") 
         mesh = halos.to_mesh(window='tsc', Nmesh=360, compensated=True, position='Position')
         print("calculating powerspectrum" ) 
-        r = NBlab.FFTPower(mesh, mode='2d', dk=kf, kmin=kf, Nmu=5, los=[0,0,1], poles=[0,2,4])
+        r = NBlab.FFTPower(mesh, mode='1d', dk=kf, kmin=kf, poles=[0,2,4])
         poles = r.poles
         plk = {'k': poles['k']} 
         for ell in [0, 2, 4]:
@@ -169,6 +170,7 @@ def makeSpectra():
     sub.plot(k, p0k, c='k', lw=1) 
     #sub.plot(plk['k'], plk['p0k'], c='C1', lw=1) 
     sub.set_ylabel('$P_0(k)$', fontsize=25) 
+    sub.set_ylim([3e3, 2e5]) 
     sub.set_yscale('log') 
     sub.set_xlabel('$k$', fontsize=25) 
     sub.set_xlim([3e-3, 1.]) 
@@ -207,18 +209,13 @@ def makeSpectra():
 
 def makeSpectra_rsd():     
     f_halo = ''.join([UT.dat_dir(), 'qpm/halo_ascii.dat'])
-    f_hdf5 = ''.join([UT.dat_dir(), 'qpm/halo_ascii.mlim1e13.hdf5'])
-    f_fftw = ''.join([UT.dat_dir(), 'qpm/pySpec.fft.halo.mlim1e13', 
-        '.Ngrid360', 
-        '.dat']) 
-    f_pell = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13', 
-        '.Ngrid360', 
-        '.dat']) 
-    f_pnkt = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13', 
-        '.Ngrid360', 
-        '.nbodykit', 
-        '.dat']) 
-    f_b123 = ''.join([UT.dat_dir(), 'qpm/pySpec.B123.halo.mlim1e13', 
+    f_hdf5 = ''.join([UT.dat_dir(), 'qpm/halo_ascii.mlim1e13.rsd_z.hdf5'])
+    f_fftw = ''.join([UT.dat_dir(), 'qpm/pySpec.fft.halo.mlim1e13.rsd_z', 
+        '.Ngrid360.dat']) 
+    f_pell = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13.rsd_z', 
+        '.Ngrid360.dat']) 
+    #f_pnkt = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13.rsd_z.', '.Ngrid360', '.nbodykit', '.dat']) 
+    f_b123 = ''.join([UT.dat_dir(), 'qpm/pySpec.B123.halo.mlim1e13.rsd_z', 
         '.Ngrid360', 
         '.Nmax40', 
         '.Ncut3', 
@@ -240,12 +237,15 @@ def makeSpectra_rsd():
         vxyz[:,0] = vx
         vxyz[:,1] = vy 
         vxyz[:,2] = vz
+        
+        xyz_s = pySpec.applyRSD(xyz.T, vxyz.T, 0.55, h=0.7, omega0_m=0.340563, LOS='z', Lbox=Lbox) 
 
         mlim = (mh > 1e13) 
 
         f = h5py.File(f_hdf5, 'w') 
         f.create_dataset('xyz', data=xyz[mlim,:]) 
         f.create_dataset('vxyz', data=vxyz[mlim,:]) 
+        f.create_dataset('xyz_s', data=xyz_s.T[mlim,:]) 
         f.create_dataset('mhalo', data=mh[mlim]) 
         f.close() 
 
@@ -253,9 +253,9 @@ def makeSpectra_rsd():
     if not os.path.isfile(f_fftw):  
         # read in QPM halos 
         f = h5py.File(f_hdf5, 'r') 
-        xyz = f['xyz'].value 
+        xyz_s = f['xyz_s'].value 
         # calculate FFTs
-        delta = pySpec.FFTperiodic(xyz.T, fft='fortran', Lbox=Lbox, Ngrid=360, silent=False) 
+        delta = pySpec.FFTperiodic(xyz_s.T, fft='fortran', Lbox=Lbox, Ngrid=360, silent=False) 
         delta_fft = pySpec.reflect_delta(delta, Ngrid=360) 
 
         f = FortranFile(f_fftw, 'w') 
@@ -277,47 +277,47 @@ def makeSpectra_rsd():
         # save to file 
         hdr = 'pyspectrum P_l=0(k) calculation. k_f = 2pi/1024'
         np.savetxt(f_pell, np.array([k*kf, p0k/(kf**3), cnts]).T, fmt='%.5e %.5e %.5e', delimiter='\t', header=hdr) 
+    '''
+        # calculate P(k) using nbodykit for santiy check 
+        if not os.path.isfile(f_pnkt): 
+            # read in QPM halos 
+            f = h5py.File(f_hdf5, 'r') 
+            xyz = f['xyz'].value
+            vxyz = f['vxyz'].value
+            mh = f['mhalo'].value 
 
-    # calculate P(k) using nbodykit for santiy check 
-    if not os.path.isfile(f_pnkt): 
-        # read in QPM halos 
-        f = h5py.File(f_hdf5, 'r') 
-        xyz = f['xyz'].value
-        vxyz = f['vxyz'].value
-        mh = f['mhalo'].value 
+            # get cosmology from header 
+            Omega_m = 0.3175
+            Omega_b = 0.049 # fixed baryon 
+            h = 0.6711
+            cosmo = NBlab.cosmology.Planck15.clone(Omega_cdm=Omega_m-Omega_b, h=h, Omega_b=Omega_b)
 
-        # get cosmology from header 
-        Omega_m = 0.3175
-        Omega_b = 0.049 # fixed baryon 
-        h = 0.6711
-        cosmo = NBlab.cosmology.Planck15.clone(Omega_cdm=Omega_m-Omega_b, h=h, Omega_b=Omega_b)
+            halo_data = {}  
+            halo_data['Position']  = xyz 
+            halo_data['Velocity']  = vxyz
+            halo_data['Mass']      = mh
+            print("putting it into array catalog") 
+            halos = NBlab.ArrayCatalog(halo_data, BoxSize=np.array([Lbox, Lbox, Lbox])) 
+            print("putting it into halo catalog") 
+            halos = NBlab.HaloCatalog(halos, cosmo=cosmo, redshift=0.55, mdef='vir') 
+            print("putting it into mesh") 
+            mesh = halos.to_mesh(window='tsc', Nmesh=360, compensated=True, position='Position')
+            print("calculating powerspectrum" ) 
+            r = NBlab.FFTPower(mesh, mode='2d', dk=kf, kmin=kf, Nmu=5, los=[0,0,1], poles=[0,2,4])
+            poles = r.poles
+            plk = {'k': poles['k']} 
+            for ell in [0, 2, 4]:
+                P = (poles['power_%d' % ell].real)
+                if ell == 0: 
+                    P = P - poles.attrs['shotnoise'] # subtract shotnoise from monopole 
+                plk['p%dk' % ell] = P 
+            plk['shotnoise'] = poles.attrs['shotnoise'] # save shot noise term
 
-        halo_data = {}  
-        halo_data['Position']  = xyz 
-        halo_data['Velocity']  = vxyz
-        halo_data['Mass']      = mh
-        print("putting it into array catalog") 
-        halos = NBlab.ArrayCatalog(halo_data, BoxSize=np.array([Lbox, Lbox, Lbox])) 
-        print("putting it into halo catalog") 
-        halos = NBlab.HaloCatalog(halos, cosmo=cosmo, redshift=0., mdef='vir') 
-        print("putting it into mesh") 
-        mesh = halos.to_mesh(window='tsc', Nmesh=360, compensated=True, position='Position')
-        print("calculating powerspectrum" ) 
-        r = NBlab.FFTPower(mesh, mode='2d', dk=kf, kmin=kf, Nmu=5, los=[0,0,1], poles=[0,2,4])
-        poles = r.poles
-        plk = {'k': poles['k']} 
-        for ell in [0, 2, 4]:
-            P = (poles['power_%d' % ell].real)
-            if ell == 0: 
-                P = P - poles.attrs['shotnoise'] # subtract shotnoise from monopole 
-            plk['p%dk' % ell] = P 
-        plk['shotnoise'] = poles.attrs['shotnoise'] # save shot noise term
-
-        # header 
-        hdr = 'pyspectrum P_l(k) calculation. k_f = 2pi/1024; P_shotnoise '+str(plk['shotnoise']) 
-        # write to file 
-        np.savetxt(f_pnkt, np.array([plk['k'], plk['p0k'], plk['p2k'], plk['p4k']]).T, header=hdr) 
-
+            # header 
+            hdr = 'pyspectrum P_l(k) calculation. k_f = 2pi/1024; P_shotnoise '+str(plk['shotnoise']) 
+            # write to file 
+            np.savetxt(f_pnkt, np.array([plk['k'], plk['p0k'], plk['p2k'], plk['p4k']]).T, header=hdr) 
+    '''
     # calculate bispectrum 
     if not os.path.isfile(f_b123): 
         try:
@@ -343,11 +343,12 @@ def makeSpectra_rsd():
     sub.plot(k, p0k, c='k', lw=1) 
     #sub.plot(plk['k'], plk['p0k'], c='C1', lw=1) 
     sub.set_ylabel('$P_0(k)$', fontsize=25) 
+    sub.set_ylim([3e3, 2e5]) 
     sub.set_yscale('log') 
     sub.set_xlabel('$k$', fontsize=25) 
     sub.set_xlim([3e-3, 1.]) 
     sub.set_xscale('log') 
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/p0k.png']), bbox_inches='tight')
+    fig.savefig(''.join([UT.dat_dir(), 'qpm/p0k.rsd_z.png']), bbox_inches='tight')
 
     # plot bispectrum shape triangle plot 
     i_k, j_k, l_k, b123, q123, counts = np.loadtxt(f_b123, unpack=True, skiprows=1, usecols=[0,1,2,3,4,5]) 
@@ -365,7 +366,7 @@ def makeSpectra_rsd():
     sub.set_title(r'$Q(k_1, k_2, k_3)$ QPM halo catalog', fontsize=25)
     sub.set_xlabel('$k_3/k_1$', fontsize=25)
     sub.set_ylabel('$k_2/k_1$', fontsize=25)
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123_shape.png']), bbox_inches='tight')
+    fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123_shape.rsd_z.png']), bbox_inches='tight')
 
     # plot bispectrum amplitude 
     fig = plt.figure(figsize=(10,5))
@@ -375,7 +376,7 @@ def makeSpectra_rsd():
     sub.set_xlim([0, len(q123)]) 
     sub.set_ylabel(r'$Q(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_ylim([0., 1.]) 
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123.png']), bbox_inches='tight')
+    fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123.rsd_z.png']), bbox_inches='tight')
     return None
 
 
@@ -412,7 +413,7 @@ def QPMvsAemulus():
     sub = fig.add_subplot(111)
     i_k, j_k, l_k, b123, q123, counts = np.loadtxt(f_b123('aemulus'), unpack=True, skiprows=1, usecols=[0,1,2,3,4,5]) 
     #klim = np.ones(len(b123)).astype(bool)
-    #0.03 h Mpc−1 ≤ k ≤ 0.22 h Mpc
+    # 0.03 h/Mpc < k < 0.22 h/Mpc
     klim = ((i_k*kf_aem <= 0.22) & (i_k*kf_aem >= 0.03) &
             (j_k*kf_aem <= 0.22) & (j_k*kf_aem >= 0.03) & 
             (l_k*kf_aem <= 0.22) & (l_k*kf_aem >= 0.03)) 
@@ -475,5 +476,102 @@ def QPMvsAemulus():
     return None
 
 
+def QPMvsAemulus_rsd(): 
+    f_pell = lambda sim: ''.join([UT.dat_dir(), sim, '/pySpec.Plk.halo.mlim1e13.rsd_z.Ngrid360.dat']) 
+    f_pnkt = lambda sim: ''.join([UT.dat_dir(), sim, '/pySpec.Plk.halo.mlim1e13.rsd_z.Ngrid360.nbodykit.dat']) 
+    f_b123 = lambda sim: ''.join([UT.dat_dir(), sim, '/pySpec.B123.halo.mlim1e13.rsd_z', 
+        '.Ngrid360', '.Nmax40', '.Ncut3', '.step3', '.pyfftw', '.dat']) 
+    
+    Lbox_qpm = 1024. 
+    Lbox_aem = 1024. 
+    kf_qpm = 2.*np.pi/Lbox_qpm
+    kf_aem = 2.*np.pi/Lbox_aem
+    
+    fig = plt.figure(figsize=(5,5))
+    sub = fig.add_subplot(111)
+    k, p0k = np.loadtxt(f_pell('aemulus'), unpack=True, skiprows=1, usecols=[0,1]) 
+    klim = (k < 0.3) 
+    sub.plot(k[klim], p0k[klim], c='k', lw=1, label='Aemulus') 
+    k, p0k = np.loadtxt(f_pell('qpm'), unpack=True, skiprows=1, usecols=[0,1]) 
+    klim = (k < 0.3) 
+    sub.plot(k[klim], p0k[klim], c='C1', lw=1, label='QPM') 
+    sub.legend(loc='upper right', fontsize=20) 
+    sub.set_ylabel('$P_0(k)$', fontsize=25) 
+    sub.set_yscale('log') 
+    sub.set_xlabel('$k$', fontsize=25) 
+    sub.set_xlim([8e-3, 1.]) 
+    sub.set_xscale('log') 
+    fig.savefig(''.join([UT.dat_dir(), 'qpm/p0k_qpm_aemulus.rsd_z.png']), bbox_inches='tight')
+
+    fig = plt.figure(figsize=(10,5))
+    sub = fig.add_subplot(111)
+    i_k, j_k, l_k, b123, q123, counts = np.loadtxt(f_b123('aemulus'), unpack=True, skiprows=1, usecols=[0,1,2,3,4,5]) 
+    #klim = np.ones(len(b123)).astype(bool)
+    # 0.03 h/Mpc < k < 0.22 h/Mpc
+    klim = ((i_k*kf_aem <= 0.22) & (i_k*kf_aem >= 0.03) &
+            (j_k*kf_aem <= 0.22) & (j_k*kf_aem >= 0.03) & 
+            (l_k*kf_aem <= 0.22) & (l_k*kf_aem >= 0.03)) 
+    i_k = i_k[klim]
+    j_k = j_k[klim]
+    l_k = l_k[klim]
+    b123 = (2*np.pi)**6 * b123[klim]/kf_aem**6
+   
+    _b123 = [] 
+    l_usort = np.sort(np.unique(l_k))
+    for l in l_usort: 
+        j_usort = np.sort(np.unique(j_k[l_k == l]))
+        for j in j_usort: 
+            i_usort = np.sort(np.unique(i_k[(l_k == l) & (j_k == j)]))
+            for i in i_usort: 
+                _b123.append(b123[(i_k == i) & (j_k == j) & (l_k == l)])
+    sub.scatter(range(np.sum(klim)), _b123, c='k', s=5, label='Aemulus') 
+    sub.plot(range(np.sum(klim)), _b123, c='k') 
+
+    i_k, j_k, l_k, b123, q123, counts = np.loadtxt(f_b123('qpm'), unpack=True, skiprows=1, usecols=[0,1,2,3,4,5]) 
+    #klim = np.ones(len(b123)).astype(bool)
+    #klim = (i_k*kf_aem < 0.3) & (j_k*kf_aem < 0.3) & (l_k*kf_aem < 0.3)
+    klim = ((i_k*kf_qpm <= 0.22) & (i_k*kf_qpm >= 0.03) &
+            (j_k*kf_qpm <= 0.22) & (j_k*kf_qpm >= 0.03) & 
+            (l_k*kf_qpm <= 0.22) & (l_k*kf_qpm >= 0.03)) 
+    i_k = i_k[klim]
+    j_k = j_k[klim]
+    l_k = l_k[klim]
+    b123 = (2*np.pi)**6 * b123[klim]/kf_qpm**6
+
+    _b123 = [] 
+    l_usort = np.sort(np.unique(l_k))
+    for l in l_usort: 
+        j_usort = np.sort(np.unique(j_k[l_k == l]))
+        for j in j_usort: 
+            i_usort = np.sort(np.unique(i_k[(l_k == l) & (j_k == j)]))
+            for i in i_usort: 
+                _b123.append(b123[(i_k == i) & (j_k == j) & (l_k == l)])
+    sub.scatter(range(np.sum(klim)), _b123, c='C1', s=5, label='QPM') 
+    sub.plot(range(np.sum(klim)), _b123, c='C1') 
+    sub.legend(loc='upper right', markerscale=4, handletextpad=0., fontsize=20) 
+    sub.set_ylabel('$B(k_1, k_2, k_3)$', fontsize=25) 
+    sub.set_yscale('log') 
+    sub.set_ylim([1e8, 6e9]) 
+    sub.set_xlabel(r'$k_1 \le k_2 \le k_3$ triangle indices', fontsize=25) 
+    sub.set_xlim([0, np.sum(klim)])#len(b123)]) 
+    fig.savefig(''.join([UT.dat_dir(), 'qpm/B123_qpm_aemulus.rsd_z.png']), bbox_inches='tight')
+
+    fig = plt.figure(figsize=(10,5))
+    sub = fig.add_subplot(111)
+    i_k, j_k, l_k, b123, q123, counts = np.loadtxt(f_b123('aemulus'), unpack=True, skiprows=1, usecols=[0,1,2,3,4,5]) 
+    sub.scatter(range(len(q123)), q123, c='k', s=2, label='Aemulus') 
+    i_k, j_k, l_k, b123, q123, counts = np.loadtxt(f_b123('qpm'), unpack=True, skiprows=1, usecols=[0,1,2,3,4,5]) 
+    sub.scatter(range(len(q123)), q123, c='C1', s=2, label='QPM') 
+    sub.legend(loc='upper right', fontsize=20) 
+    sub.set_ylabel('$Q(k_1, k_2, k_3)$', fontsize=25) 
+    sub.set_xlabel('$k_1 > k_2 > k_3$ triangle indices', fontsize=25) 
+    sub.set_xlim([0, len(q123)]) 
+    fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123_qpm_aemulus.rsd_z.png']), bbox_inches='tight')
+    return None
+
+
 if __name__=="__main__": 
+    #makeSpectra()
+    #makeSpectra_rsd()
     QPMvsAemulus()
+    QPMvsAemulus_rsd()
