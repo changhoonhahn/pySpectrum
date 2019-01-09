@@ -11,8 +11,8 @@ from pyspectrum import pyspectrum as pySpec
 
 
 if __name__=="__main__": 
-    #x, y, z = np.loadtxt(''.join([UT.dat_dir(), 'BoxN1.mock']), unpack=True, usecols=[0,1,2]) 
-    x, y, z = np.loadtxt(''.join([UT.dat_dir(), 'BoxN1.mock1000000']), unpack=True, usecols=[0,1,2]) 
+    x, y, z = np.loadtxt(''.join([UT.dat_dir(), 'BoxN1.mock']), unpack=True, usecols=[0,1,2]) 
+    #x, y, z = np.loadtxt(''.join([UT.dat_dir(), 'BoxN1.mock1000000']), unpack=True, usecols=[0,1,2]) 
     #x, y, z = np.loadtxt(''.join([UT.dat_dir(), 'BoxN1.mock100']), unpack=True, usecols=[0,1,2]) 
     xyz = np.zeros((3, len(x))) 
     xyz[0,:] = x
@@ -25,7 +25,7 @@ if __name__=="__main__":
     #_delt = np.reshape(_delt, (360, 360, 360), order='F') 
     #fEstimate.fcomb(_delt,len(x),360) 
     #__delt = _delt[:181,:,:] 
-    
+    ''' 
     delta = pySpec.FFTperiodic(xyz, Lbox=2600, Ngrid=360, silent=False, test='assign') 
     f = FortranFile(''.join([UT.dat_dir(), 'zmap.dcl']), 'r')
     delta_assign = f.read_reals(np.complex64) 
@@ -67,12 +67,15 @@ if __name__=="__main__":
     print delta.ravel()[np.argmax(np.abs(delta-delt))]
     print delt.ravel()[np.argmax(np.abs(delta-delt))]
     print np.allclose(delta, delt)
+    '''
     
     print('------------') 
     print('delta array after reflect') 
     #_delta_fft = pySpec.read_fortFFT(file=''.join([UT.dat_dir(), 'FFT.BoxN1.mock.Ngrid360']))
-    delta = pySpec.FFTperiodic(xyz, Lbox=2600, Ngrid=360, silent=False) 
-    delt = pySpec.read_fortFFT(file=''.join([UT.dat_dir(), 'FFT.BoxN1.mock1000000.Ngrid360']))
+    _delta = pySpec.FFTperiodic(xyz, Lbox=2600, Ngrid=360, silent=False) 
+    delta = pySpec.reflect_delta(_delta, Ngrid=360, silent=False)
+    #delt = pySpec.read_fortFFT(file=''.join([UT.dat_dir(), 'FFT.BoxN1.mock1000000.Ngrid360']))
+    delt = pySpec.read_fortFFT(file=''.join([UT.dat_dir(), 'FFT.BoxN1.mock.Ngrid360']))
     print (delta-delt)[:10,0,0]
     print delta.ravel()[np.argmax(np.abs(delta-delt))]
     print delt.ravel()[np.argmax(np.abs(delta-delt))]

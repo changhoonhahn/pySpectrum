@@ -3,9 +3,34 @@ import fftw3
 import pyfftw
 import numpy as np 
 from scipy.io import FortranFile
+from astropy.cosmology import FlatLambdaCDM
 # -- local -- 
 import estimator as fEstimate
 from . import util as UT
+
+
+def applyRSD(xyz, vxyz, redshift, h=0.7, omega0_m=0.3, LOS=None, Lbox=None): 
+    ''' Calculate redshift-space positions using the real-space position,
+    velocities, and LOS direction for periodic box.
+    '''
+    assert xyz.shape[0] == 3 # xyz and vxyz should be 3 x Ngal arrays
+    assert vxyz.shape[0] == 3 
+    if LOS is None: raise ValueError("specify line of sight") 
+    if Lbox is None: raise ValueError("specify box size") 
+    _los = {'x': 0, 'y': 1, 'z': 2} 
+    i_los = _los[LOS]
+
+    # cosmology
+    H0 = 100. * h 
+    cosmo = FlatLambdaCDM(H0=H0, Om0=omega0_m)  
+
+    # the RSD normalization factor
+    rsd_factor = (1+redshift) / (100 * cosmo.efunc(redshift))
+
+    xyz_rsd = xyz.copy() 
+    xyz_rsd[i_los] += rsd_factor * vxyz[i_los] + Lbox 
+    xyz_rsd[i_los] = (xyz_rsd[i_los] % Lbox) 
+    return xyz_rsd
 
 
 def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True): 
@@ -73,8 +98,7 @@ def delta_quadrupole(delt, Ngrid=360, rsd=None, silent=True):
     _delt1[:,:,:] = delt[:,:,:]
 
     fEstimate.build_quad(_delt1, _delt2, i_rsd, Ngrid) 
-    return _delt2
-    #return reflect_delta(delt, Ngrid=Ngrid, silent=silent) 
+    return reflect_delta(_delt2, Ngrid=Ngrid, silent=silent) 
 
 
 def reflect_delta(delt, Ngrid=360, silent=True): 
@@ -241,6 +265,16 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads
     q123_arr = np.array(q123_arr) 
     cnts_arr = np.array(cnts_arr)
     return i_arr, j_arr, l_arr, b123_arr, q123_arr, cnts_arr 
+
+
+def Bk123_periodic_rsd(delta, delta_q, rsd=None, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, silent=True): 
+    ''' Calculate the bispectrum monopole and quadrupole for periodic box 
+    given delta(k) 3D field. 
+    
+    i,j,l are in units of k_fundamental (2pi/Lbox) 
+    b123 is in units of 1/kf^3/(2pi)^3
+    '''
+    raise NotImplementedError
 
 
 def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=True): 
