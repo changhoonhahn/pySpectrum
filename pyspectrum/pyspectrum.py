@@ -1,5 +1,4 @@
 import os 
-import fftw3 
 import pyfftw
 import numpy as np 
 from scipy.io import FortranFile
@@ -54,8 +53,8 @@ def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True):
     
     if fft == 'pyfftw': 
         delta = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex64')
-    elif fft == 'fftw3': 
-        delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex128')
+    #elif fft == 'fftw3': 
+    #    delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex128')
     elif fft == 'fortran': 
         delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F')
     delta.real = _delta[::2,:,:] 
@@ -68,12 +67,12 @@ def FFTperiodic(gals, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True):
         #ifft_delta = fftw_ob(normalise_idft=False)
         ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F') 
         ifft_delta[:,:,:] = fftw_ob(normalise_idft=False)
-    elif fft == 'fftw3': 
-        _ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex128')#, order='F') 
-        ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64, order='F') 
-        fftplan = fftw3.Plan(delta, _ifft_delta, direction='backward', flags=['estimate'])
-        fftplan.execute() 
-        ifft_delta[:,:,:] = _ifft_delta[:,:,:]
+    #elif fft == 'fftw3': 
+    #    _ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex128')#, order='F') 
+    #    ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64, order='F') 
+    #    fftplan = fftw3.Plan(delta, _ifft_delta, direction='backward', flags=['estimate'])
+    #    fftplan.execute() 
+    #    ifft_delta[:,:,:] = _ifft_delta[:,:,:]
     elif fft == 'fortran': 
         ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64, order='F') 
         fEstimate.ffting(delta, Ng, Ngrid) 

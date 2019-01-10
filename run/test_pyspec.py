@@ -36,16 +36,16 @@ if __name__=="__main__":
     #delta1 = pySpec.FFTperiodic(xyz, fft='fftw3', Lbox=2600, Ngrid=360, silent=False) 
     #delta_fft1 = pySpec.reflect_delta(delta1, Ngrid=360) 
     #print('--fftw3: %f sec' % ((time.time() - t0)/60.)) 
-    t0 = time.time() # ~0.090432 sec
-    delta2 = pySpec.FFTperiodic(xyz, fft='fortran', Lbox=2600, Ngrid=360, silent=False) 
-    delta_fft2 = pySpec.reflect_delta(delta2, Ngrid=360) 
-    print('--fortran: %f sec' % ((time.time() - t0)/60.)) 
+    #t0 = time.time() # ~0.090432 sec
+    #delta2 = pySpec.FFTperiodic(xyz, fft='fortran', Lbox=2600, Ngrid=360, silent=False) 
+    #delta_fft2 = pySpec.reflect_delta(delta2, Ngrid=360) 
+    #print('--fortran: %f sec' % ((time.time() - t0)/60.)) 
 
-    '''
     t0 = time.time() # 
-    k0, p0k0 = pySpec.Pk_periodic(delta_fft0, Lbox=2600) 
+    k0, p0k0, cnts = pySpec.Pk_periodic(delta_fft0, Lbox=2600) 
     print('--python periodic Pk: %f sec' % ((time.time() - t0)/60.)) 
     #k1, p0k1 = pySpec.Pk_periodic(delta_fft1, Lbox=2600, lang='fortran') 
+    '''
     t0 = time.time() # 
     k2, p0k2 = pySpec.Pk_periodic_f77(delta2, Lbox=2600) 
     print('--fortran periodic Pk: %f sec' % ((time.time() - t0)/60.)) 
@@ -68,9 +68,9 @@ if __name__=="__main__":
     '''
 
     t0 = time.time() # ~0.090432 sec
-    _,_,_, bk, qk = pySpec.Bk123_periodic(delta_fft0, Nmax=40, Ncut=3, step=3, fft_method='pyfftw') 
+    _,_,_, bk, qk, _ = pySpec.Bk123_periodic(delta_fft0, Nmax=40, Ncut=3, step=3, fft_method='pyfftw') 
     print('--python bk: %f sec' % ((time.time() - t0)/60.)) 
-    _,_,_, bk_ref, qk_ref = np.loadtxt(''.join([UT.dat_dir(), 'BISP.BoxN1.mock.Ngrid360']), 
+    _,_,_, bk_ref, qk_ref, _ = np.loadtxt(''.join([UT.dat_dir(), 'BISP.BoxN1.mock.Ngrid360']), 
             unpack=True, usecols=[0,1,2,6,7]) 
 
     fig = plt.figure(figsize=(10,5))
