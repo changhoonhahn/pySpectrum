@@ -173,7 +173,7 @@ def Pk_periodic_f77(delta, Lbox=None):
     return ks, (2.*np.pi)**3 * p0k 
 
 
-def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, silent=True): 
+def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, bit=32, silent=True): 
     ''' Calculate the bispectrum for periodic box given delta(k) 3D field.
     i,j,l are in units of k_fundamental (2pi/Lbox) 
     b123 is in units of 1/kf^3/(2pi)^3
@@ -193,7 +193,10 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads
     Nk = np.array([np.sum(irk == i) for i in np.arange(Nmax+1)])#grid)])#Nmax - Ncut/step+2)])
 
     if not silent: print("--- calculating delta(k) shells ---") 
-    deltaKshellK = np.zeros((irk.max()+1, Ngrid, Ngrid, Ngrid), dtype=complex)
+    if bit == 32: 
+        deltaKshellK = np.zeros((irk.max()+1, Ngrid, Ngrid, Ngrid), dtype=np.complex64)
+    elif bit == 64: 
+        deltaKshellK = np.zeros((irk.max()+1, Ngrid, Ngrid, Ngrid), dtype=complex)
     for i in range(Ngrid):
         for j in range(Ngrid):
             for l in range(Ngrid):
@@ -264,16 +267,6 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads
     q123_arr = np.array(q123_arr) 
     cnts_arr = np.array(cnts_arr)
     return i_arr, j_arr, l_arr, b123_arr, q123_arr, cnts_arr 
-
-
-def Bk123_periodic_rsd(delta, delta_q, rsd=None, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, silent=True): 
-    ''' Calculate the bispectrum monopole and quadrupole for periodic box 
-    given delta(k) 3D field. 
-    
-    i,j,l are in units of k_fundamental (2pi/Lbox) 
-    b123 is in units of 1/kf^3/(2pi)^3
-    '''
-    raise NotImplementedError
 
 
 def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silent=True): 
