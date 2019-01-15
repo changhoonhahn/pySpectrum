@@ -193,6 +193,7 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads
     Nk = np.array([np.sum(irk == i) for i in np.arange(Nmax+1)])#grid)])#Nmax - Ncut/step+2)])
 
     if not silent: print("--- calculating delta(k) shells ---") 
+    print(irk.max()+1, Ngrid) 
     deltaKshellK = np.zeros((irk.max()+1, Ngrid, Ngrid, Ngrid), dtype=complex)
     for i in range(Ngrid):
         for j in range(Ngrid):

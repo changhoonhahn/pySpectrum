@@ -43,7 +43,7 @@ if __name__=="__main__":
 
     t0 = time.time() # 
     k0, p0k0, cnts = pySpec.Pk_periodic(delta_fft0, Lbox=2600) 
-    print('--python periodic Pk: %f sec' % ((time.time() - t0)/60.)) 
+    print('--python periodic Pk: %f min' % ((time.time() - t0)/60.)) 
     #k1, p0k1 = pySpec.Pk_periodic(delta_fft1, Lbox=2600, lang='fortran') 
     '''
     t0 = time.time() # 
@@ -69,10 +69,12 @@ if __name__=="__main__":
 
     t0 = time.time() # ~0.090432 sec
     _,_,_, bk, qk, _ = pySpec.Bk123_periodic(delta_fft0, Nmax=40, Ncut=3, step=3, fft_method='pyfftw') 
-    print('--python bk: %f sec' % ((time.time() - t0)/60.)) 
-    _,_,_, bk_ref, qk_ref, _ = np.loadtxt(''.join([UT.dat_dir(), 'BISP.BoxN1.mock.Ngrid360']), 
+    print('--python bk: %f min' % ((time.time() - t0)/60.)) 
+    _,_,_, bk_ref, qk_ref = np.loadtxt(''.join([UT.dat_dir(), 'BISP.BoxN1.mock.Ngrid360']), 
             unpack=True, usecols=[0,1,2,6,7]) 
-
+    print (bk - bk_ref)[::100]
+    print (qk - qk_ref)[::100]
+    '''
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
     sub.scatter(np.arange(len(bk)), qk, c='C0', s=5) 
@@ -81,3 +83,4 @@ if __name__=="__main__":
     sub.set_xlabel('Triangle Index', fontsize=25) 
     sub.set_xlim([0, len(bk)]) 
     fig.savefig(''.join([UT.fig_dir(), 'bk_test.png']), bbox_inches='tight') 
+    '''
