@@ -44,9 +44,12 @@ if __name__=="__main__":
 
     _,_,_, bk_ref, qk_ref = np.loadtxt(''.join([UT.dat_dir(), 'BISP.BoxN1.mock.Ngrid360']), 
             unpack=True, usecols=[0,1,2,6,7]) 
-    print (bk - bk_ref)[::100]
-    print (qk - qk_ref)[::100]
+    print(np.abs(bk - bk_ref).max())
+    print((np.abs(bk - bk_ref)/bk).max())
+    print(np.abs(qk - qk_ref).max())
+    print((np.abs(qk - qk_ref)/qk).max())
 
+    '''
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
     sub.scatter(np.arange(len(bk)), bk, c='C0', s=5) 
@@ -66,3 +69,4 @@ if __name__=="__main__":
     sub.set_xlim([0, len(bk)]) 
     sub.set_yscale("log") 
     fig.savefig(''.join([UT.fig_dir(), 'qk_test.png']), bbox_inches='tight') 
+    '''

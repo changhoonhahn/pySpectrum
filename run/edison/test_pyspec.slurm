@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -p debug 
 #SBATCH -n 1
-#SBATCH -t 00:30:00 
+#SBATCH -t 00:15:00 
 #SBATCH -J test_pyspec 
 #SBATCH -o _test_pyspec.o
 
