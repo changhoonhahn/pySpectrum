@@ -1,4 +1,5 @@
 import os 
+import time
 import pyfftw
 import numpy as np 
 from scipy.io import FortranFile
@@ -173,7 +174,90 @@ def Pk_periodic_f77(delta, Lbox=None):
     return ks, (2.*np.pi)**3 * p0k 
 
 
-def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, bit=32, silent=True): 
+def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, silent=True): 
+    ''' Calculate the bispectrum for periodic box given delta(k) 3D field.
+    i,j,l are in units of k_fundamental (2pi/Lbox) 
+    b123 is in units of 1/kf^3/(2pi)^3
+    '''
+    Ngrid = delta.shape[0]
+    
+    # FFT convention: array of |kx| values #
+    a = np.array([min(i,Ngrid-i) for i in range(Ngrid)])
+
+    # FFT convention: rank three field of |r| values #
+    rk = ((np.sqrt(a[:,None,None]**2 + a[None,:,None]**2 + a[None,None,:]**2)))
+    
+    irk = (rk/step+0.5).astype(int) # BINNING OPERATION, VERY IMPORTANT
+
+    Nk = np.array([np.sum(irk == i) for i in np.arange(Nmax+1)])#grid)])#Nmax - Ncut/step+2)])
+
+    if not silent: print("--- calculating delta(k) shells ---") 
+    
+    deltaKshellX = np.zeros((Nmax+1, Ngrid, Ngrid, Ngrid),dtype=float) #default double prec
+    p0k = np.zeros(Nmax)
+
+    for j in range(Ncut // step, Nmax + 1):
+        if fft_method == 'pyfftw':
+            tempK = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex64')
+        else: 
+            tempK = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64)
+        tempK[irk == j] = delta[irk == j] 
+
+        if fft_method == 'pyfftw': 
+            if j == (Ncut // step): 
+                fftw_ob = pyfftw.builders.fftn(tempK, planner_effort='FFTW_ESTIMATE', threads=nthreads)
+                pyfftw.interfaces.cache.enable()
+            fft_tempK = fftw_ob(tempK)
+            deltaKshellX[j] = np.real(fft_tempK)
+        elif fft_method == 'numpy':
+            deltaKshellX[j] = np.fft.fftn(tempK)
+        
+        p0k[j-1] = np.einsum('i,i', deltaKshellX[j].ravel(), deltaKshellX[j].ravel())/Ngrid**3/Nk[j] # 10 ms
+
+    # counts for normalizing  
+    counts = _counts_Bk123(Ngrid=Ngrid, Nmax=Nmax, Ncut=Ncut, step=step, fft_method=fft_method, silent=silent) 
+    #counts[counts == 0] = np.inf
+
+    if not silent: print("--- calculating B(k1,k2,k3) ---") 
+    #bisp = np.zeros((Nmax, Nmax, Nmax), dtype=float) #default double prec
+    i_arr, j_arr, l_arr = [], [], []
+    b123_arr, q123_arr, cnts_arr = [], [], [] 
+    for i in range(Ncut//step, Nmax+1): 
+        for j in range(Ncut//step, i+1):
+            for l in range(max(i-j, Ncut//step), j+1):
+                fac = 1. 
+                if (j == l) and (i == j): fac=6.
+                if (i == j) and (j != l): fac=2.
+                if (i == l) and (l != j): fac=2.
+                if (j == l) and (l != i): fac=2.
+                if counts[i-1,j-1,l-1] > 0: 
+                    i_arr.append(i) 
+                    j_arr.append(j) 
+                    l_arr.append(l) 
+                    #bisp[i-1,j-1,l-1] = np.einsum('i,i,i', 
+                    # deltaKshellX[i].ravel(), deltaKshellX[j].ravel(), deltaKshellX[l].ravel())
+                    bisp_ijl = np.einsum('i,i,i', 
+                            deltaKshellX[i].ravel(), 
+                            deltaKshellX[j].ravel(), 
+                            deltaKshellX[l].ravel())
+                    b123_arr.append(bisp_ijl/counts[i-1,j-1,l-1]) 
+                    q123_arr.append(bisp_ijl/counts[i-1,j-1,l-1]/(p0k[i-1]*p0k[j-1] + p0k[j-1]*p0k[l-1] + p0k[l-1]*p0k[i-1]))
+                    cnts_arr.append(counts[i-1,j-1,l-1]/(fac*float(Ngrid**3)))
+                else: 
+                    b123_arr.append(0.) 
+                    q123_arr.append(0.) 
+                    cnts_arr.append(0.) 
+
+    i_arr = np.array(i_arr) * step 
+    j_arr = np.array(j_arr) * step 
+    l_arr = np.array(l_arr) * step 
+    b123_arr = np.array(b123_arr)
+    q123_arr = np.array(q123_arr) 
+    cnts_arr = np.array(cnts_arr)
+    return i_arr, j_arr, l_arr, b123_arr, q123_arr, cnts_arr 
+
+
+def _Bk123_periodic_old(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, bit=32, silent=True): 
     ''' Calculate the bispectrum for periodic box given delta(k) 3D field.
     i,j,l are in units of k_fundamental (2pi/Lbox) 
     b123 is in units of 1/kf^3/(2pi)^3
