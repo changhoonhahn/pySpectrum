@@ -29,58 +29,40 @@ if __name__=="__main__":
     
     # pyspectrum P(k) calculation 
     t0 = time.time() # ~0.120479 sec
-    delta0 = pySpec.FFTperiodic(xyz, fft='pyfftw', Lbox=2600, Ngrid=360, silent=False) 
-    delta_fft0 = pySpec.reflect_delta(delta0, Ngrid=360) 
+    delta = pySpec.FFTperiodic(xyz, fft='pyfftw', Lbox=2600, Ngrid=360, silent=False) 
+    delta_fft = pySpec.reflect_delta(delta, Ngrid=360) 
     print('--pyfftw: %f sec' % ((time.time() - t0)/60.)) 
-    #t0 = time.time() # ~0.286884 sec 
-    #delta1 = pySpec.FFTperiodic(xyz, fft='fftw3', Lbox=2600, Ngrid=360, silent=False) 
-    #delta_fft1 = pySpec.reflect_delta(delta1, Ngrid=360) 
-    #print('--fftw3: %f sec' % ((time.time() - t0)/60.)) 
-    #t0 = time.time() # ~0.090432 sec
-    #delta2 = pySpec.FFTperiodic(xyz, fft='fortran', Lbox=2600, Ngrid=360, silent=False) 
-    #delta_fft2 = pySpec.reflect_delta(delta2, Ngrid=360) 
-    #print('--fortran: %f sec' % ((time.time() - t0)/60.)) 
 
-    t0 = time.time() # 
-    k0, p0k0, cnts = pySpec.Pk_periodic(delta_fft0, Lbox=2600) 
-    print('--python periodic Pk: %f min' % ((time.time() - t0)/60.)) 
-    #k1, p0k1 = pySpec.Pk_periodic(delta_fft1, Lbox=2600, lang='fortran') 
-    '''
-    t0 = time.time() # 
-    k2, p0k2 = pySpec.Pk_periodic_f77(delta2, Lbox=2600) 
-    print('--fortran periodic Pk: %f sec' % ((time.time() - t0)/60.)) 
-
-    k_ref, p0k_ref = np.loadtxt(''.join([UT.dat_dir(), 'PK.BoxN1.mock.Ngrid360']), unpack=True, usecols=[0,1]) 
-    kf = 2.*np.pi/2600.
-
-    fig = plt.figure(figsize=(6,6))
-    sub = fig.add_subplot(111)
-    sub.plot(k0, p0k0, c='C0') 
-    #sub.plot(k1, p0k1, c='C1') 
-    sub.plot(k2, p0k2, c='C2') 
-    sub.plot(k_ref, (2.*np.pi)**3*p0k_ref, c='k', ls=':') 
-    sub.set_ylabel('$P(k)$', fontsize=25) 
-    sub.set_yscale('log') 
-    sub.set_xlabel('$k$', fontsize=25) 
-    sub.set_xlim([1e-3, 1.]) 
-    sub.set_xscale('log') 
-    fig.savefig(''.join([UT.fig_dir(), 'pk_test.png']), bbox_inches='tight') 
-    '''
-
+    #t0 = time.time() 
+    #k0, p0k0, cnts = pySpec.Pk_periodic(delta_fft0, Lbox=2600) 
+    #print('--python periodic Pk: %f min' % ((time.time() - t0)/60.)) 
+    
     t0 = time.time() # ~0.090432 sec
-    _,_,_, bk, qk, _ = pySpec.Bk123_periodic(delta_fft0, Nmax=40, Ncut=3, step=3, fft_method='pyfftw') 
+    _,_,_, bk, qk, _ = pySpec.Bk123_periodic(delta_fft, Nmax=40, Ncut=3, step=3, fft_method='pyfftw') 
     print('--python bk: %f min' % ((time.time() - t0)/60.)) 
+    np.savetxt(''.join([UT.dat_dir(), '_test_pySpec.BISP.BoxN1.mock.Ngrid360']), np.vstack([bk, qk]).T)
+
     _,_,_, bk_ref, qk_ref = np.loadtxt(''.join([UT.dat_dir(), 'BISP.BoxN1.mock.Ngrid360']), 
             unpack=True, usecols=[0,1,2,6,7]) 
     print (bk - bk_ref)[::100]
     print (qk - qk_ref)[::100]
-    '''
+
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
-    sub.scatter(np.arange(len(bk)), qk, c='C0', s=5) 
-    sub.scatter(np.arange(len(bk_ref)), qk_ref, c='k', s=5) 
+    sub.scatter(np.arange(len(bk)), bk, c='C0', s=5) 
+    sub.scatter(np.arange(len(bk_ref)), bk_ref, c='k', s=3) 
     sub.set_ylabel('$B(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_xlabel('Triangle Index', fontsize=25) 
     sub.set_xlim([0, len(bk)]) 
+    sub.set_yscale("log") 
     fig.savefig(''.join([UT.fig_dir(), 'bk_test.png']), bbox_inches='tight') 
-    '''
+
+    fig = plt.figure(figsize=(10,5))
+    sub = fig.add_subplot(111)
+    sub.scatter(np.arange(len(bk)), qk, c='C0', s=5) 
+    sub.scatter(np.arange(len(bk_ref)), qk_ref, c='k', s=3) 
+    sub.set_ylabel('$B(k_1, k_2, k_3)$', fontsize=25) 
+    sub.set_xlabel('Triangle Index', fontsize=25) 
+    sub.set_xlim([0, len(bk)]) 
+    sub.set_yscale("log") 
+    fig.savefig(''.join([UT.fig_dir(), 'qk_test.png']), bbox_inches='tight') 
