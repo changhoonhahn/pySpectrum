@@ -174,48 +174,6 @@ def Pk_periodic_f77(delta, Lbox=None):
     return ks, (2.*np.pi)**3 * p0k 
 
 
-def _Pk_periodic_Bkmatch(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, silent=True): 
-    ''' calculate the  powerspectrum for the modes used in the bispectrum
-    '''
-    Ngrid = delta.shape[0]
-    
-    # FFT convention: array of |kx| values #
-    a = np.array([min(i,Ngrid-i) for i in range(Ngrid)])
-
-    # FFT convention: rank three field of |r| values #
-    rk = ((np.sqrt(a[:,None,None]**2 + a[None,:,None]**2 + a[None,None,:]**2)))
-    
-    irk = (rk/step+0.5).astype(int) # BINNING OPERATION, VERY IMPORTANT
-
-    Nk = np.array([np.sum(irk == i) for i in np.arange(Nmax+1)])#grid)])#Nmax - Ncut/step+2)])
-
-    if not silent: print("--- calculating delta(k) shells ---") 
-    
-    deltaKshellX = np.zeros((Nmax+1, Ngrid, Ngrid, Ngrid),dtype=float) #default double prec
-    j_arr = [] 
-    p0k = np.zeros(Nmax)
-    for j in range(Ncut // step, Nmax + 1):
-        if fft_method == 'pyfftw':
-            tempK = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex64')
-        else: 
-            tempK = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64)
-        tempK[irk == j] = delta[irk == j] 
-
-        if fft_method == 'pyfftw': 
-            if j == (Ncut // step): 
-                fftw_ob = pyfftw.builders.fftn(tempK, planner_effort='FFTW_ESTIMATE', threads=nthreads)
-                pyfftw.interfaces.cache.enable()
-            fft_tempK = fftw_ob(tempK)
-            deltaKshellX[j] = np.real(fft_tempK)
-        elif fft_method == 'numpy':
-            deltaKshellX[j] = np.fft.fftn(tempK)
-        
-        p0k[j-1] = np.einsum('i,i', deltaKshellX[j].ravel(), deltaKshellX[j].ravel())/Ngrid**3/Nk[j] # 10 ms
-        j_arr.append(j) 
-    return j, p0k
-
-
-
 def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, silent=True): 
     ''' Calculate the bispectrum for periodic box given delta(k) 3D field.
     i,j,l are in units of k_fundamental (2pi/Lbox) 
