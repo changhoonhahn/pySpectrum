@@ -5,16 +5,21 @@ General utility functions
 '''
 import os
 
-
-def dat_dir(): 
-    ''' directory that contains all the data files, defined by environment variable 
+def dat_dir():  
+    ''' local directory for dumping files. This is mainly used for  
+    the test runs.
     '''
+    if os.environ.get('PYSPEC_DIR') is None: 
+        raise ValueError("set $PYSPEC_DIR environment varaible!") 
     return os.environ.get('PYSPEC_DIR') 
 
 
 def code_dir(): 
+    ''' location of the repo directory. set $PYSPEC_CODEDIR 
+    environment varaible in your bashrc file. 
+    '''
     if os.environ.get('PYSPEC_CODEDIR') is None: 
-        raise ValueError("set $FOMOSPEC_CODEDIR environment varaible!") 
+        raise ValueError("set $PYSPEC_CODEDIR environment varaible!") 
     return os.environ.get('PYSPEC_CODEDIR') 
     
 

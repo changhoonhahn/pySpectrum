@@ -357,7 +357,8 @@ def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', silen
     ''' return bispectrum normalization 
     @chh explain nmax, ncut, and step below 
     '''
-    f_counts = ''.join([UT.dat_dir(), 'counts', 
+    f_counts = ''.join([UT.code_dir(), 'dat/', 
+        'counts', 
         '.Ngrid', str(Ngrid),
         '.Nmax', str(Nmax),
         '.Ncut', str(Ncut),
@@ -438,7 +439,8 @@ def _counts_Bk123_f77(Ngrid=360, Nmax=40, Ncut=3, step=3, silent=True):
     ''' return bispectrum normalization 
     @chh explain nmax, ncut, and step below 
     '''
-    f_counts = ''.join([UT.dat_dir(), 'counts', 
+    f_counts = ''.join([UT.code_dir(), 'dat/', 
+        'counts', 
         '.Ngrid', str(Ngrid),
         '.Nmax', str(Nmax),
         '.Ncut', str(Ncut),
