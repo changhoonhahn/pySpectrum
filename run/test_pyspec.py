@@ -37,8 +37,10 @@ if __name__=="__main__":
     #k0, p0k0, cnts = pySpec.Pk_periodic(delta_fft0, Lbox=2600) 
     #print('--python periodic Pk: %f min' % ((time.time() - t0)/60.)) 
     
-    t0 = time.time() # ~0.090432 sec
-    _,_,_, bk, qk, _ = pySpec.Bk123_periodic(delta_fft, Nmax=40, Ncut=3, step=3, fft_method='pyfftw') 
+    t0 = time.time() 
+    output = pySpec.Bk123_periodic(delta_fft, Nmax=40, Ncut=3, step=3, fft_method='pyfftw') 
+    print('Bk123_periodic takes %f' % (time.time() - t0))
+    bk, qk = output['b123'], output['q123'] 
     print('--python bk: %f min' % ((time.time() - t0)/60.)) 
     np.savetxt(''.join([UT.dat_dir(), '_test_pySpec.BISP.BoxN1.mock.Ngrid360']), np.vstack([bk, qk]).T)
 
