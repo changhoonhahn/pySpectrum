@@ -178,6 +178,12 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads
     ''' Calculate the bispectrum for periodic box given delta(k) 3D field.
     i,j,l are in units of k_fundamental (2pi/Lbox) 
     b123 is in units of 1/kf^3/(2pi)^3
+
+    # add documentation here!
+    # add documentation here!
+    # add documentation here!
+    # add documentation here!
+    # add documentation here!
     '''
     Ngrid = delta.shape[0]
     
@@ -221,6 +227,7 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads
     if not silent: print("--- calculating B(k1,k2,k3) ---") 
     #bisp = np.zeros((Nmax, Nmax, Nmax), dtype=float) #default double prec
     i_arr, j_arr, l_arr = [], [], []
+    p0k_i, p0k_j, p0k_l = [], [], [] 
     b123_arr, q123_arr, cnts_arr = [], [], [] 
     for i in range(Ncut//step, Nmax+1): 
         for j in range(Ncut//step, i+1):
@@ -240,21 +247,33 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads
                             deltaKshellX[i].ravel(), 
                             deltaKshellX[j].ravel(), 
                             deltaKshellX[l].ravel())
+                    p0k_i.append(p0k[i-1])
+                    p0k_j.append(p0k[j-1])
+                    p0k_l.append(p0k[l-1])
+
                     b123_arr.append(bisp_ijl/counts[i-1,j-1,l-1]) 
                     q123_arr.append(bisp_ijl/counts[i-1,j-1,l-1]/(p0k[i-1]*p0k[j-1] + p0k[j-1]*p0k[l-1] + p0k[l-1]*p0k[i-1]))
                     cnts_arr.append(counts[i-1,j-1,l-1]/(fac*float(Ngrid**3)))
                 else: 
+                    p0k_i.append(0.)
+                    p0k_j.append(0.)
+                    p0k_l.append(0.)
+
                     b123_arr.append(0.) 
                     q123_arr.append(0.) 
                     cnts_arr.append(0.) 
-
-    i_arr = np.array(i_arr) * step 
-    j_arr = np.array(j_arr) * step 
-    l_arr = np.array(l_arr) * step 
-    b123_arr = np.array(b123_arr)
-    q123_arr = np.array(q123_arr) 
-    cnts_arr = np.array(cnts_arr)
-    return i_arr, j_arr, l_arr, b123_arr, q123_arr, cnts_arr 
+    
+    output = {} 
+    output['i_k1'] = np.array(i_arr) * step 
+    output['i_k2'] = np.array(j_arr) * step 
+    output['i_k3'] = np.array(l_arr) * step 
+    output['p0k1'] = np.array(p0k_i)
+    output['p0k2'] = np.array(p0k_j)
+    output['p0k3'] = np.array(p0k_l)
+    output['b123'] = np.array(b123_arr)
+    output['q123'] = np.array(q123_arr) 
+    output['counts'] = np.array(cnts_arr)
+    return output 
 
 
 def _Bk123_periodic_old(delta, Nmax=40, Ncut=3, step=3, fft_method='pyfftw', nthreads=1, bit=32, silent=True): 
