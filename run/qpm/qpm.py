@@ -43,15 +43,15 @@ def QPMspectra(rsd=False):
     str_rsd = ''
     if rsd: str_rsd = '.rsd'
     f_halo = ''.join([UT.dat_dir(), 'qpm/halo_ascii.dat'])
-    f_hdf5 = ''.join([UT.dat_dir(), 'qpm/halo.mlim1e13.hdf5'])
-    f_pell = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13', 
+    f_hdf5 = ''.join([UT.dat_dir(), 'qpm/halo.mlim1e13.Lbox1050.hdf5'])
+    f_pell = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13.Lbox1050', 
         '.Ngrid360', str_rsd, '.dat']) 
-    f_pnkt = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13', 
+    f_pnkt = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13.Lbox1050', 
         '.Ngrid360', '.nbodykit', str_rsd, '.dat']) 
-    f_b123 = ''.join([UT.dat_dir(), 'qpm/pySpec.B123.halo.mlim1e13', 
+    f_b123 = ''.join([UT.dat_dir(), 'qpm/pySpec.B123.halo.mlim1e13.Lbox1050', 
         '.Ngrid360', '.Nmax40', '.Ncut3', '.step3', '.pyfftw', str_rsd, '.dat']) 
 
-    Lbox = 1024. 
+    Lbox = 1050. 
     kf = 2.*np.pi/Lbox
     
     # 1. read in ascii file
@@ -94,7 +94,7 @@ def QPMspectra(rsd=False):
         mh = f['mhalo'].value
 
     Nhalo = xyz.shape[0]
-    print('# halos = %i' % Nhalo) 
+    print('# halos = %i in %.1f box' % (Nhalo, Lbox)) 
     nhalo = float(Nhalo) / Lbox**3
     print('number density = %f' % nhalo) 
     print('1/nbar = %f' % (1./nhalo))
@@ -149,7 +149,7 @@ def QPMspectra(rsd=False):
         plk['shotnoise'] = poles.attrs['shotnoise'] # save shot noise term
 
         # header 
-        hdr = 'pyspectrum P_l(k) calculation. k_f = 2pi/1024; P_shotnoise '+str(plk['shotnoise']) 
+        hdr = 'pyspectrum P_l(k) calculation. k_f = 2pi/%.1f; P_shotnoise %f' % (Lbox, plk['shotnoise']) 
         # write to file 
         np.savetxt(f_pnkt, np.array([plk['k'], plk['p0k'], plk['p2k'], plk['p4k']]).T, header=hdr) 
     else: 
@@ -308,7 +308,7 @@ def AEMspectra(rsd=False):
         p0k = p0k/kf**3 - 1./nhalo
         
         # save to file 
-        hdr = 'pyspectrum P_l=0(k) calculation. k_f = 2pi/1024'
+        hdr = 'pyspectrum P_l=0(k) calculation. k_f = 2pi/1050.'
         np.savetxt(f_pell, np.array([k, p0k, cnts]).T, fmt='%.5e %.5e %.5e', delimiter='\t', header=hdr) 
     else: 
         k, p0k, cnts = np.loadtxt(f_pell, skiprows=1, unpack=True, usecols=[0,1,2]) 
@@ -344,7 +344,7 @@ def AEMspectra(rsd=False):
         plk['shotnoise'] = poles.attrs['shotnoise'] # save shot noise term
 
         # header 
-        hdr = 'pyspectrum P_l(k) calculation. k_f = 2pi/1024; P_shotnoise '+str(plk['shotnoise']) 
+        hdr = 'pyspectrum P_l(k) calculation. k_f = 2pi/1050; P_shotnoise '+str(plk['shotnoise']) 
         # write to file 
         np.savetxt(f_pnkt, np.array([plk['k'], plk['p0k'], plk['p2k'], plk['p4k']]).T, header=hdr) 
     else: 
@@ -452,7 +452,7 @@ def QPM_AEM(rsd=False):
     f_pnkt = lambda sim: ''.join([UT.dat_dir(), sim, '/pySpec.Plk.halo.mlim1e13.Ngrid360.nbodykit', str_rsd, '.dat']) 
     f_b123 = lambda sim: ''.join([UT.dat_dir(), sim, '/pySpec.B123.halo.mlim1e13.Ngrid360.Nmax40.Ncut3.step3.pyfftw', str_rsd, '.dat']) 
     
-    Lbox_qpm = 1024. 
+    Lbox_qpm = 1050. 
     Lbox_aem = 1050. 
     kf_qpm = 2.*np.pi/Lbox_qpm
     kf_aem = 2.*np.pi/Lbox_aem
@@ -528,9 +528,9 @@ def QPM_AEM(rsd=False):
 
 
 if __name__=="__main__": 
-    #QPMspectra(rsd=True)
-    #QPMspectra(rsd=False)
+    QPMspectra(rsd=True)
+    QPMspectra(rsd=False)
     #AEMspectra(rsd=True)
     #AEMspectra(rsd=False)
-    QPM_AEM(rsd=False)
-    QPM_AEM(rsd=True)
+    #QPM_AEM(rsd=False)
+    #QPM_AEM(rsd=True)
