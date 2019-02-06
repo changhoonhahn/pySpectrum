@@ -475,7 +475,7 @@ def QPM_AEM(rsd=False):
     sub.set_ylabel('$P_0(k)$', fontsize=25) 
     sub.set_yscale('log') 
     sub.set_xlabel('$k$', fontsize=25) 
-    sub.set_xlim([8e-3, 1.]) 
+    sub.set_xlim([8e-3, 0.5]) 
     sub.set_xscale('log') 
     fig.savefig(''.join([UT.dat_dir(), 'qpm/p0k_qpm_aemulus', str_rsd, '.png']), bbox_inches='tight')
 
@@ -528,9 +528,9 @@ def QPM_AEM(rsd=False):
 
 
 if __name__=="__main__": 
-    QPMspectra(rsd=True)
-    QPMspectra(rsd=False)
+    #QPMspectra(rsd=True)
+    #QPMspectra(rsd=False)
     #AEMspectra(rsd=True)
     #AEMspectra(rsd=False)
-    #QPM_AEM(rsd=False)
-    #QPM_AEM(rsd=True)
+    QPM_AEM(rsd=False)
+    QPM_AEM(rsd=True)
