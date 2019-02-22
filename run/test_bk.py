@@ -68,11 +68,12 @@ fig.savefig(os.path.join(UT.dat_dir(), 'test_bk.p0k.png'), bbox_inches='tight')
 
 fig = plt.figure(figsize=(15,5))
 sub = fig.add_subplot(111)
-b_sn = (bisp['p0k1'] + bisp['p0k2'] + bisp['p0k3'])/nbar + 1/nbar**2 
-sub.plot(range(len(bisp['i_k1'])), (2*np.pi/kf)**6 * bisp['b123'], c='C0', lw=0.5, ls=':')  # shot noise uncorrected
+b_sn = (2*np.pi/kf)**3 * (bisp['p0k1'] + bisp['p0k2'] + bisp['p0k3'])/nbar - 2/nbar**2 
+sub.plot(range(len(bisp['i_k1'])), b_sn, c='k', lw=0.5, ls=':', label='shot noise')  # shot noise
 sub.scatter(range(len(bisp['i_k1'])), (2*np.pi/kf)**6 * bisp['b123'] - b_sn, c='C0', s=5, label='pySpec')  # shot noise corrected
-b_sn = (_pi + _pj + _pl)/nbar + 1/nbar**2 
-sub.scatter(range(len(_i)), (2*np.pi/kf)**6 * _b123 - b_sn, c='k', s=1, label="Roman's code") 
+b_sn = (2*np.pi/kf)**3 * (_pi + _pj + _pl)/nbar - 2/nbar**2 
+sub.scatter(range(len(_i)), (2*np.pi/kf)**6 * _b123 - b_sn, c='C1', s=1, label="Roman's code") 
+sub.legend(loc='upper right') 
 sub.set_xlabel('triangles', fontsize=25)
 sub.set_xlim([0, len(_i)])
 sub.set_ylabel(r'$B(k_1, k_2, k_3)$ (not SN corrected)', fontsize=25)
@@ -126,16 +127,17 @@ fig.savefig(os.path.join(UT.dat_dir(), 'test_bk.p0k.zspace.png'), bbox_inches='t
 
 fig = plt.figure(figsize=(15,5))
 sub = fig.add_subplot(111)
-b_sn = (bisp['p0k1'] + bisp['p0k2'] + bisp['p0k3'])/nbar + 1/nbar**2 
-sub.scatter(range(len(bisp['i_k1'])), (2*np.pi/kf)**6 * bisp['b123'] - b_sn, c='C1', s=1, label='real-space') 
-b_sn = (bisp_s['p0k1'] + bisp_s['p0k2'] + bisp_s['p0k3'])/nbar + 1/nbar**2 
-sub.plot(range(len(bisp_s['i_k1'])), (2*np.pi/kf)**6 * bisp_s['b123'], c='C0', lw=0.5, ls=':') # shot noise uncorrected
+b_sn = (2*np.pi/kf)**3 * (bisp['p0k1'] + bisp['p0k2'] + bisp['p0k3'])/nbar - 2/nbar**2 
+sub.scatter(range(len(bisp['i_k1'])), (2*np.pi/kf)**6 * bisp['b123'] - b_sn, c='C2', s=1, label='real-space') 
+b_sn = (2*np.pi/kf)**3 * (bisp_s['p0k1'] + bisp_s['p0k2'] + bisp_s['p0k3'])/nbar - 2/nbar**2 
+sub.plot(range(len(bisp_s['i_k1'])), b_sn, c='k', lw=0.5, ls=':', label='shot noise') # shot noise 
 sub.scatter(range(len(bisp_s['i_k1'])), (2*np.pi/kf)**6 * bisp_s['b123'] - b_sn, c='C0', s=5, label='pySpec') #shot noise corrected
-b_sn = (_pi + _pj + _pl)/nbar + 1/nbar**2 
-sub.scatter(range(len(_i)), (2*np.pi/kf)**6 * _b123 - b_sn, c='k', s=1, label="Roman's code") 
+b_sn = (2*np.pi/kf)**3 * (_pi + _pj + _pl)/nbar - 2/nbar**2 
+sub.scatter(range(len(_i)), (2*np.pi/kf)**6 * _b123 - b_sn, c='C1', s=1, label="Roman's code") 
+sub.legend(loc='upper right') 
 sub.set_xlabel('triangles', fontsize=25)
 sub.set_xlim([0, len(_i)])
-sub.set_ylabel(r'$B(k_1, k_2, k_3)$ (not SN corrected)', fontsize=25)
+sub.set_ylabel(r'$B(k_1, k_2, k_3)$', fontsize=25)
 sub.set_yscale('log') 
 sub.set_ylim([1e7, 8e9])
 fig.savefig(''.join([UT.dat_dir(), 'test_bk.bk.zspace.png']), bbox_inches='tight')
