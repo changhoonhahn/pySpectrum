@@ -523,8 +523,53 @@ def QPM_AEM(rsd=False):
     sub.set_ylabel('$Q(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_xlabel('$k_1 > k_2 > k_3$ triangle indices', fontsize=25) 
     sub.set_xlim([0, len(q123)]) 
+    sub.set_ylim([0., 1.]) 
     fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123_qpm_aemulus', str_rsd, '.png']), bbox_inches='tight')
     return None
+
+
+def AEM_rzspace(): 
+    ''' comparison between real and redshift space 
+    '''
+    f_b123 = lambda sim, rsd: os.path.join(UT.dat_dir(), sim, 'pySpec.B123.halo.mlim1e13.Ngrid360.Nmax40.Ncut3.step3.pyfftw%s.dat' % ['', '.rsd'][rsd]) 
+    Lbox_aem = 1050. 
+    kf_aem = 2.*np.pi/Lbox_aem
+
+    fig = plt.figure(figsize=(10,5))
+    sub = fig.add_subplot(111)
+    i_k, j_k, l_k, p0k1, p0k2, p0k3, b123, q123, counts, _ = np.loadtxt(f_b123('aemulus', False),
+            skiprows=1, unpack=True, usecols=range(10)) 
+    i_k, j_k, l_k, p0k1, p0k2, p0k3, b123_s, q123_s, counts, _ = np.loadtxt(f_b123('aemulus', True),
+            skiprows=1, unpack=True, usecols=range(10)) 
+    klim = ((i_k*kf_aem <= 0.3) & (j_k*kf_aem <= 0.3) & (l_k*kf_aem <= 0.3)) 
+    ijl = UT.ijl_order(i_k[klim], j_k[klim], l_k[klim], typ='GM') # order of triangles 
+   
+    sub.scatter(range(np.sum(klim)), b123[klim][ijl], c='k', s=5, label='real-space') 
+    sub.plot(range(np.sum(klim)), b123[klim][ijl], c='k') 
+    sub.scatter(range(np.sum(klim)), b123_s[klim][ijl], c='C1', s=5, label='z-space') 
+    sub.plot(range(np.sum(klim)), b123_s[klim][ijl], c='C1') 
+    print (b123_s[klim][ijl] / b123[klim][ijl]).flatten()
+    sub.legend(loc='upper right', markerscale=4, handletextpad=0., fontsize=20) 
+    sub.set_ylabel('$B(k_1, k_2, k_3)$', fontsize=25) 
+    sub.set_yscale('log') 
+    sub.set_xlabel(r'$k_1 \le k_2 \le k_3$ triangle indices', fontsize=25) 
+    sub.set_xlim([0, np.sum(klim)])
+    fig.savefig(''.join([UT.dat_dir(), 'qpm/B123_aemulus_rzspace.png']), bbox_inches='tight')
+
+    fig = plt.figure(figsize=(10,5))
+    sub = fig.add_subplot(111)
+    sub.scatter(range(np.sum(klim)), q123[klim][ijl], c='k', s=2, label='real-space') 
+    sub.plot(range(np.sum(klim)), q123[klim][ijl], c='k', lw=1) 
+    sub.scatter(range(np.sum(klim)), q123_s[klim][ijl], c='C1', s=2, label='redshift-space') 
+    sub.plot(range(np.sum(klim)), q123_s[klim][ijl], c='C1', lw=1) 
+    sub.legend(loc='lower right', handletextpad=0.2, markerscale=10, fontsize=20) 
+    sub.set_ylabel('$Q(k_1, k_2, k_3)$', fontsize=25) 
+    sub.set_xlabel('$k_1 > k_2 > k_3$ triangle indices', fontsize=25) 
+    sub.set_xlim([0, np.sum(klim)]) 
+    sub.set_ylim([0., 1.]) 
+    fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123_aemulus_rzspace.png']), bbox_inches='tight')
+    return None
+
 
 
 if __name__=="__main__": 
@@ -532,5 +577,6 @@ if __name__=="__main__":
     #QPMspectra(rsd=False)
     #AEMspectra(rsd=True)
     #AEMspectra(rsd=False)
-    QPM_AEM(rsd=False)
-    QPM_AEM(rsd=True)
+    #QPM_AEM(rsd=False)
+    #QPM_AEM(rsd=True)
+    AEM_rzspace()
