@@ -73,6 +73,37 @@ def Bk_periodic(xyz, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, fft='pyfftw'
     return bispec
 
 
+def Pk_periodic(xyz, Lbox=2600, Ngrid=360, fft='pyfftw', silent=True): 
+    ''' calculate the powerspectrum for periodic box. This function is a wrapper for
+    FFTperiodic and _Pk_periodic
+    '''
+    N = xyz.shape[1] # number of positions 
+    nbar = float(N)/Lbox**3 
+    kf = 2 * np.pi / Lbox 
+    if not silent: 
+        print('------------------') 
+        print('%i positions in %i box' % (N, Lbox))  
+        print('nbar = %f' % nbar)  
+
+    if not silent: print('--- calculating the FFT ---') 
+    delta = FFTperiodic(xyz, Lbox=Lbox, Ngrid=Ngrid, fft=fft, silent=silent) 
+    delta_fft = reflect_delta(delta, Ngrid=Ngrid) 
+
+    k, p0k, counts = _Pk_periodic(delta_fft, Lbox=Lbox) 
+
+    # store some meta data for completeness  
+    meta = {'Lbox': Lbox, 'Ngrid': Ngrid, 'N': N, 'nbar': nbar, 'kf': kf} 
+    pspec = {} 
+    pspec['meta'] = meta 
+    if not silent: print('--- correcting for shotnoise ---') 
+    # convert any outputs to sensible units and apply shot noise correction! 
+    pspec['k'] = k
+    pspec['p0k'] = p0k - 1./nbar
+    pspec['counts'] = counts 
+    pspec['p0k_sn'] = 1./nbar
+    return pspec 
+
+
 def FFTperiodic(xyz, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True): 
     ''' Put galaxies in a grid and FFT it. This function wraps some of
     the functions in estimator.f and does the same thing as roman's 
@@ -370,7 +401,7 @@ def reflect_delta(delt, Ngrid=360, silent=True):
     return delta 
 
 
-def Pk_periodic(delta, Lbox=None):
+def _Pk_periodic(delta, Lbox=None):
     ''' calculate the powerspecturm for periodic box given 3d fourier density grid. 
     output k is in units of k_fundamental 
     '''
