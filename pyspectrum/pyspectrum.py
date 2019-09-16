@@ -76,6 +76,19 @@ def Bk_periodic(xyz, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, fft='pyfftw'
 def Pk_periodic(xyz, Lbox=2600, Ngrid=360, fft='pyfftw', silent=True): 
     ''' calculate the powerspectrum for periodic box. This function is a wrapper for
     FFTperiodic and _Pk_periodic
+    
+    :param xyz: 
+        3xN array of object positions. 
+    :param Lbox: 
+        box size in Mpc/h. (default: 2600) 
+    :param Ngrid: 
+        FFT grid size. (default:360)  
+    :param fft:
+        fftw version to use. Options are 'pyfftw' and 'fortran'. (default: pyfftw) 
+    :param silent: 
+        if True nothing is printed. 
+    :return pspec:
+        output dictionary 
     '''
     N = xyz.shape[1] # number of positions 
     nbar = float(N)/Lbox**3 

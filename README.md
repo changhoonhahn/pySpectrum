@@ -1,7 +1,10 @@
 # pySpectrum
 Python package for calculating the galaxy/halo/dark matter power spectrum and bispectrum. 
 
-## Installing `pySpectrum`
+- [installation](#installation)
+- [To-do](#to-do)
+
+## Installation
 clone the repo and run setpy.py
 ```bash
 git clone https://github.com/changhoonhahn/pySpectrum.git
@@ -14,3 +17,5 @@ in your .bashrc or .bash_profile --- e.g.
 export PYSPEC_CODEDIR=/location/of/pySpectrum/
 ```
 
+## To-do 
+* release power spectrum quadrupole 
