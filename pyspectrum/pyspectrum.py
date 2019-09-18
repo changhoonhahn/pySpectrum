@@ -73,9 +73,73 @@ def Bk_periodic(xyz, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, fft='pyfftw'
     return bispec
 
 
+def Pk_periodic_rsd(xyz, Lbox=2600, Ngrid=360, rsd=2, Nmubin=10, fft='pyfftw', code='fortran', silent=True): 
+    '''calculate the powerspectrum multipole for periodic box with redshift-space distortions along `rsd` axes. 
+    
+    :param xyz: 
+        3xN array of object positions (e.g. galaxies, halos, DM particles) 
+    :param Lbox: 
+        size of periodic box in Mpc/h. (default: 2600) 
+    :param Ngrid: 
+        FFT grid size. (default:360)  
+    :param rsd:
+        rsd direction {'x': 0, 'y': 1, 'z': 2}. (default: 2) 
+    :param Nmubin: 
+        number of Mu bins for (k, mu) binning. (default: 10) 
+    :param fft:
+        fftw version to use. Options are 'pyfftw' and 'fortran'. (default: pyfftw) 
+    :param code: 
+        If code == 'fortran' use wrapped fortran code. If code == 'python' use python code. 
+        Python code is slow an inefficient and mainly there for pedagogical reasons. So 
+        unless you know better use fortran. (default: fortran) 
+    :param silent: 
+        if True nothing is printed. 
+
+    :return pspec:
+        output dictionary with the meta data and the following colums
+        * k : average k in k bin  
+        * p0k : monopole
+        * p2k : quadrupole
+        * p4k : hexadecapole
+        * counts : number of modes in k bin 
+        * k_kmu : average k of (k,mu) bin  
+        * mu_kmu : average mu of (k,mu) bin 
+        * p_kmu : P(k,mu) 
+        * counts_kmu : number of modes in (k, mu) bin
+    '''
+    N = xyz.shape[1] # number of positions 
+    nbar = float(N)/Lbox**3 
+    kf = 2 * np.pi / Lbox 
+    if not silent: 
+        print('------------------') 
+        print('%i positions in %i box' % (N, Lbox))  
+        print('nbar = %f' % nbar)  
+
+    delta = FFTperiodic(xyz, Lbox=Lbox, Ngrid=Ngrid, fft=fft, silent=silent) 
+    k, p0k, p2k, p4k, n_k, k_kmu, mu_kmu, p_kmu, n_kmu = \
+            _Pk_periodic_rsd(delta, Lbox=Lbox, rsd=rsd, Nmubin=Nmubin, code=code)
+
+    # store some meta data for completeness  
+    meta = {'Lbox': Lbox, 'Ngrid': Ngrid, 'N': N, 'nbar': nbar, 'kf': kf} 
+    pspec = {} 
+    pspec['meta'] = meta 
+    if not silent: print('--- correcting for shotnoise ---') 
+    # convert any outputs to sensible units and apply shot noise correction! 
+    pspec['k'] = k
+    pspec['p0k'] = p0k - 1./nbar
+    pspec['p2k'] = p2k
+    pspec['p4k'] = p4k
+    pspec['counts'] = n_k 
+    pspec['k_kmu']  = k_kmu
+    pspec['mu_kmu'] = mu_kmu
+    pspec['p_kmu']  = p_kmu - 1./nbar
+    pspec['counts_kmu']  = n_kmu
+    return pspec 
+
+
 def Pk_periodic(xyz, Lbox=2600, Ngrid=360, fft='pyfftw', silent=True): 
-    ''' calculate the powerspectrum for periodic box. This function is a wrapper for
-    FFTperiodic and _Pk_periodic
+    ''' calculate the powerspectrum for periodic box in **real**-space. For redshift-space see
+    `Pk_periodic_rsd`. This function is a wrapper for FFTperiodic and _Pk_periodic
     
     :param xyz: 
         3xN array of object positions. 
@@ -175,7 +239,7 @@ def FFTperiodic(xyz, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True):
     # combine fields 
     fEstimate.fcomb(ifft_delta,N,Ngrid) 
     if not silent: print('fcomb complete') 
-    return ifft_delta[:Ngrid/2+1,:,:]
+    return ifft_delta[:Ngrid//2+1,:,:]
 
 
 def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft='pyfftw', nthreads=1, silent=True): 
@@ -415,11 +479,11 @@ def reflect_delta(delt, Ngrid=360, silent=True):
 
 
 def _Pk_periodic(delta, Lbox=None):
-    ''' calculate the powerspecturm for periodic box given 3d fourier density grid. 
+    ''' calculate the powerspecturm for periodic box given 3d fourier density grid, delta(k). 
     output k is in units of k_fundamental 
     '''
     Ngrid = delta.shape[0]
-    Nbins = Ngrid / 2 
+    Nbins = Ngrid // 2 
     if Lbox is None: 
         kf = 1. # in units of fundamental mode 
     else: 
@@ -444,6 +508,115 @@ def _Pk_periodic(delta, Lbox=None):
             nks[i-1] = float(Nk) 
 
     return ks, (2.*np.pi)**3 * p0k, nks
+
+
+def _Pk_periodic_rsd(delta, Lbox=None, rsd=2, Nmubin=5, code='fortran'):
+    ''' calculate the powerspecturm for periodic box given 3d fourier density grid, delta(k). 
+    output k is in units of k_fundamental 
+    '''
+    if code == 'python': 
+        Ngrid = delta.shape[0]
+        Nbins = int(Ngrid / 2) 
+
+        dmu = 1./float(Nmubin)
+        
+        # fundamental model 
+        if Lbox is None: 
+            kf = 1. # in units of fundamental mode 
+        else: 
+            kf = 2*np.pi / float(Lbox) 
+        phys_nyq = kf * float(Ngrid) / 2. # physical Nyquist
+
+        # FFT convention: array of |kx| values #
+        _i = np.array([min(i,Ngrid-i) for i in range(Ngrid)])
+        # FFT convention: rank three field of |r| values #
+        rk = kf * np.sqrt(_i[:,None,None]**2 + _i[None,:,None]**2 + _i[None,None,:]**2)
+        irk = (Nbins * rk / phys_nyq + 0.5).astype(int) # BINNING OPERATION, VERY IMPORTANT
+
+        # theta and phi of observer
+        theta_obs = [0.5*np.pi, 0.5*np.pi, 0.][rsd]
+        phi_obs = [0., 0.5*np.pi, 0.][rsd]
+
+        rkx = kf * _i[:,None,None]
+        rky = kf * _i[None,:,None]
+        rkz = kf * _i[None,None,:]
+
+        cos_theta = rkz / rk 
+        sin_theta = np.sqrt(1. - cos_theta**2)  
+
+        cc = np.zeros((Ngrid, Ngrid, Ngrid))
+        cos_phi = rkx / (rk * sin_theta) 
+        sin_phi = rky / (rk * sin_theta) 
+        cc[sin_theta > 0.] = np.sin(phi_obs) * sin_phi[sin_theta > 0.] + np.cos(phi_obs) * cos_phi[sin_theta > 0.]
+        mu = np.cos(theta_obs) * cos_theta + np.sin(theta_obs) * sin_theta * cc 
+        imu = (np.ceil(mu / dmu)).astype(int)
+        imu[0,0,0] = -999 
+
+        Leg2 = -0.5 + 1.5 * mu**2
+        Leg4 = 0.375 - 3.75 * mu**2 + 4.375 * mu**4
+
+        ks      = np.zeros(Nbins) # k 
+        p0k     = np.zeros(Nbins) # monopole
+        p2k     = np.zeros(Nbins) # quadrupole 
+        p4k     = np.zeros(Nbins) # hexadecapole 
+        nks     = np.zeros(Nbins) # number of modes 
+        
+        N_kmu   = np.zeros((Nbins, Nmubin)) # number of modes in (k, mu) bin 
+        k_kmu   = np.zeros((Nbins, Nmubin)) # average k of modes in (k, mu) bin 
+        mu_kmu  = np.zeros((Nbins, Nmubin)) # average mu of modes in (k, mu) bin
+        p_kmu   = np.zeros((Nbins, Nmubin)) # p(k, mu) 
+
+        for i in np.arange(1, Nbins+1): 
+            inkbin = (irk == i) 
+            Nk = np.sum(inkbin) 
+
+            if Nk > 0: 
+                ks[i-1]     = np.sum(rk[inkbin])/float(Nk)
+                p0k[i-1]    = np.sum(np.absolute(delta[inkbin])**2)/float(Nk)/kf**3
+                nks[i-1]    = float(Nk) 
+
+                for j in np.arange(1, Nmubin+1): 
+                    print(i,j)
+                    inkmubin = inkbin & (imu == j)
+                    Nkmu = np.sum(inkmubin) 
+                    if Nkmu > 0: 
+                        # quadrupole and hexadecapole contributions
+                        p2k[i-1] += np.sum(np.absolute(delta[inkmubin])**2 * Leg2[inkmubin])/float(Nk)/kf**3 * 5. 
+                        p4k[i-1] += np.sum(np.absolute(delta[inkmubin])**2 * Leg4[inkmubin])/float(Nk)/kf**3 * 9. 
+
+                        k_kmu[i-1, j-1]     = np.sum(rk[inkmubin])/float(Nkmu)
+                        mu_kmu[i-1, j-1]    = np.sum(mu[inkmubin])/float(Nkmu)
+                        p_kmu[i-1, j-1]     = np.sum(np.absolute(delta[inkmubin])**2)/float(Nkmu)/kf**3
+                        N_kmu[i-1, j-1]     = float(Nkmu) 
+        
+        pk_norm = (2.*np.pi)**3
+        p0k *= pk_norm
+        p2k *= pk_norm
+        p4k *= pk_norm
+        p_kmu *= pk_norm
+        
+        return ks, p0k, p2k, p4k, nks, k_kmu, mu_kmu, p_kmu, N_kmu 
+
+    elif code == 'fortran': 
+        Ngrid = delta.shape[1]
+        Nbins = (Ngrid // 2) 
+
+        dtl = np.zeros((Ngrid//2+1, Ngrid, Ngrid), dtype=np.complex64, order='F') 
+        dtl[:,:,:] = delta[:,:,:]
+        #print(fEstimate.pk_pbox_rsd(dtl, ks, p0k, p2k, p4k, nks, k_kmu, mu_kmu, p_kmu, n_kmu, rsd, Lbox, Nbins, Nmubin, Ngrid))
+        ks, p0k, p2k, p4k, nk, k_kmu, mu_kmu, p_kmu, n_kmu = fEstimate.pk_pbox_rsd(dtl, rsd, Lbox, Nbins, Nmubin, Ngrid)
+        print('k', ks) 
+        print('n', nk) 
+        print('p0', p0k) 
+        print('p2', p2k) 
+        print('p4', p4k) 
+
+        pk_norm = (2.*np.pi)**3
+        p0k *= pk_norm
+        p2k *= pk_norm
+        p4k *= pk_norm
+        p_kmu *= pk_norm
+        return ks, p0k, p2k, p4k, nk, k_kmu, mu_kmu, p_kmu, n_kmu
 
 
 def Pk_periodic_f77(delta, Lbox=None):
