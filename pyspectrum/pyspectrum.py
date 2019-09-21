@@ -603,13 +603,7 @@ def _Pk_periodic_rsd(delta, Lbox=None, rsd=2, Nmubin=5, code='fortran'):
 
         dtl = np.zeros((Ngrid//2+1, Ngrid, Ngrid), dtype=np.complex64, order='F') 
         dtl[:,:,:] = delta[:,:,:]
-        #print(fEstimate.pk_pbox_rsd(dtl, ks, p0k, p2k, p4k, nks, k_kmu, mu_kmu, p_kmu, n_kmu, rsd, Lbox, Nbins, Nmubin, Ngrid))
         ks, p0k, p2k, p4k, nk, k_kmu, mu_kmu, p_kmu, n_kmu = fEstimate.pk_pbox_rsd(dtl, rsd, Lbox, Nbins, Nmubin, Ngrid)
-        print('k', ks) 
-        print('n', nk) 
-        print('p0', p0k) 
-        print('p2', p2k) 
-        print('p4', p4k) 
 
         pk_norm = (2.*np.pi)**3
         p0k *= pk_norm
