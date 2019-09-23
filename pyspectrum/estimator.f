@@ -152,6 +152,117 @@ c******************************************************************
       return 
       end
 cc*******************************************************************
+      subroutine pk_pbox_rsd(dtl,k,p0,p2,p4,nk,km,mk,pkm,nkm,
+     &          irsd,Lbox,Nbin,Nmu,Ngrid)    
+cc*******************************************************************
+      integer, intent(in) :: Lbox,irsd,Nbin,Nmu,Ngrid
+      complex, dimension(Ngrid/2+1,Ngrid,Ngrid), intent(in) :: dtl
+      real*8, dimension(Nbin), intent(out) :: k,nk,p0,p2,p4
+      real*8, dimension(Nbin,Nmu), intent(out) :: km,mk,pkm,nkm
+      real pi,tpi,pk,rkx,rky,rkz,rk
+      integer i,ibin,icx,icy,icz,imk,imu,imubin,ix,iy,iz,j
+      parameter(pi=3.141592654,tpi=2.*pi)
+      real*8 mu,Le2,Le4
+      real mubin,thetaobs,phiobs
+      real kf,cot1,sit1,cp,sp,cc
+      complex ct
+      kf=tpi/Lbox !fundamental mode
+
+      mubin=1./real(Nmu) 
+      if (irsd.eq.0) then
+         thetaobs= 0.5*pi
+         phiobs=0. 
+      elseif (irsd.eq.1) then
+         thetaobs=0.5*pi
+         phiobs=0.5*pi
+      elseif (irsd.eq.2) then
+         thetaobs=0. 
+         phiobs=0. 
+      endif
+
+      do 10 i=1,Nbin
+         k(i)=0.d0
+         p0(i)=0.d0
+         p2(i)=0.d0
+         p4(i)=0.d0
+         nk(i)=0.d0
+         do 10 j=1,Nmu
+             km(i,j)=0.d0
+             mk(i,j)=0.d0
+             pkm(i,j)=0.d0
+             nkm(i,j)=0.d0
+ 10   continue
+
+      do 100 iz=1,Ngrid
+         icz=mod(Ngrid+1-iz,Ngrid)+1
+         rkz=real(mod(iz+Ngrid/2-2,Ngrid)-Ngrid/2+1) 
+         do 100 iy=1,Ngrid
+            icy=mod(Ngrid+1-iy,Ngrid)+1
+            rky=real(mod(iy+Ngrid/2-2,Ngrid)-Ngrid/2+1)
+            do 100 ix=1,Ngrid
+               icx=mod(Ngrid+1-ix,Ngrid)+1
+               rkx=real(mod(ix+Ngrid/2-2,Ngrid)-Ngrid/2+1)
+
+               rk=sqrt(rkx**2+rky**2+rkz**2)
+               imk=nint(Nbin*rk/real(Ngrid/2))  
+
+               if(imk.le.Nbin .and. imk.ne.0)then
+                  cot1=rkz/rk
+                  sit1=sqrt(1.-cot1*cot1)
+                  if (sit1.gt.0.) then
+                     cp=rkx/(rk*sit1)
+                     sp=rky/(rk*sit1)
+                     cc=sin(phiobs)*sp+cos(phiobs)*cp
+                  else
+                     cc=0.
+                  endif
+                  mu=dble(cos(thetaobs)*cot1+sin(thetaobs)*sit1*cc)!mu 
+                  imu=int((abs(mu)+dble(mubin))/dble(mubin))
+
+                  Le2=-5.d-1+1.5d0*mu**2
+                  Le4=3.75d-1-3.75d0*mu**2+4.375d0*mu**4
+
+                  nk(imk)=nk(imk)+1.d0
+                  if (ix.le.Ngrid/2+1) then 
+                     ct=dtl(ix,iy,iz)
+                  else !use cc
+                     ct=dtl(icx,icy,icz)
+                  endif
+                  pk=(cabs(ct))**2
+                  k(imk)=k(imk)+dble(kf*rk)
+                  p0(imk)=p0(imk)+dble(pk)
+                  p2(imk)=p2(imk)+dble(pk)*5.d0*Le2
+                  p4(imk)=p4(imk)+dble(pk)*9.d0*Le4
+
+                  if(imu.le.Nmu .and. imu.gt.0)then 
+                      nkm(imk,imu)=nkm(imk,imu)+1.d0
+                      km(imk,imu)=km(imk,imu)+dble(kf*rk)
+                      mk(imk,imu)=mk(imk,imu)+dble(abs(mu))
+                      pkm(imk,imu)=pkm(imk,imu)+dble(pk)
+                  endif 
+               endif
+ 100        continue
+c******************************************************************
+      do 20 Ibin=1,Nbin
+        if(nk(Ibin).gt.0)then 
+            k(Ibin)=k(Ibin)/nk(Ibin)  
+            p0(Ibin)=p0(Ibin)/nk(Ibin)/dble(kf**3)
+            p2(Ibin)=p2(Ibin)/nk(Ibin)/dble(kf**3)
+            p4(Ibin)=p4(Ibin)/nk(Ibin)/dble(kf**3)
+        endif 
+ 20   continue
+      do 110 Ibin=1,Nbin
+         do 110 Imubin=1,Nmu
+            if(nkm(Ibin,Imubin).gt.0)then 
+                km(Ibin,Imubin)=km(Ibin,Imubin)/nkm(Ibin,Imubin)
+                mk(Ibin,Imubin)=mk(Ibin,Imubin)/nkm(Ibin,Imubin)
+                Pkm(Ibin,Imubin)=Pkm(Ibin,Imubin)/nkm(Ibin,Imubin)
+     &              /dble(kf**3)
+            endif 
+ 110  continue
+      return 
+      end
+cc*******************************************************************
       subroutine ffting(dtl,N,Ngrid)
 cc*******************************************************************
       integer, intent(in) :: N,Ngrid
@@ -176,8 +287,6 @@ cc*******************************************************************
       real, intent(in) :: kf_ks 
       real, dimension(3,Np), intent(in) :: r
       real, dimension(2*Ngrid,Ngrid,Ngrid), intent(inout) :: dtl
-c      ks = 2pi/Ngrid
-c      kf = 2pi/Lbox 
       do 2 i=1,Np
        rx=kf_ks*r(1,i)+1.
        ry=kf_ks*r(2,i)+1.
@@ -394,7 +503,7 @@ cc*******************************************************************
       subroutine build_quad(dclr1,dclr2,irsd,Ngrid)
 cc*******************************************************************
       integer ix,ikx,iy,iky,iz,ikz
-      real akx,aky,akz,rk,amu
+      real rk,amu
       integer, intent(in) :: irsd,Ngrid
       complex, intent(in) :: dclr1(Ngrid/2+1,Ngrid,Ngrid)
       complex, intent(inout) :: dclr2(Ngrid/2+1,Ngrid,Ngrid)
