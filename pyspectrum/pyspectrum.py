@@ -129,6 +129,7 @@ def Pk_periodic_rsd(xyz, Lbox=2600, Ngrid=360, rsd=2, Nmubin=10, fft='pyfftw', c
     pspec['p0k'] = p0k - 1./nbar
     pspec['p2k'] = p2k
     pspec['p4k'] = p4k
+    pspec['p_sn'] = np.repeat(1./nbar, len(k))
     pspec['counts'] = n_k 
     pspec['k_kmu']  = k_kmu
     pspec['mu_kmu'] = mu_kmu
