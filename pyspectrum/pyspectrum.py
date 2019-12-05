@@ -6,7 +6,7 @@ from scipy.io import FortranFile
 from astropy.cosmology import FlatLambdaCDM
 # -- local -- 
 import estimator as fEstimate
-from . import util as UT
+from . import dat_dir 
 
 
 def Bk_periodic(xyz, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, fft='pyfftw', nthreads=1, silent=True): 
@@ -47,6 +47,7 @@ def Bk_periodic(xyz, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, fft='pyfftw'
         print('------------------') 
         print('%i positions in %i box' % (N, Lbox))  
         print('nbar = %f' % nbar)  
+    assert Ngrid == 360, "currently only tested for 360; I'm being lazy..."
 
     if not silent: print('--- calculating the FFT ---') 
     delta = FFTperiodic(xyz, Lbox=Lbox, Ngrid=Ngrid, fft=fft, silent=silent) 
@@ -348,7 +349,7 @@ def _counts_Bk123(Ngrid=360, Nmax=40, Ncut=3, step=3, fft='pyfftw', silent=True)
     @chh explain nmax, ncut, and step below 
     '''
     fcnt = ''.join(['counts', '.Ngrid', str(Ngrid), '.Nmax', str(Nmax), '.Ncut', str(Ncut), '.step', str(step), '.', fft]) 
-    f_counts = os.path.join(UT.code_dir(), 'dat', fcnt) 
+    f_counts = os.path.join(dat_dir(), fcnt) 
 
     if os.path.isfile(f_counts): 
         f = FortranFile(f_counts, 'r') 
@@ -634,7 +635,7 @@ def _counts_Bk123_f77(Ngrid=360, Nmax=40, Ncut=3, step=3, silent=True):
     @chh explain nmax, ncut, and step below 
     '''
     fcnt = ''.join(['counts', '.Ngrid', str(Ngrid), '.Nmax', str(Nmax), '.Ncut', str(Ncut), '.step', str(step), '.fort77']) 
-    f_counts = os.path.join(UT.code_dir(), 'dat', fcnt) 
+    f_counts = os.path.join(dat_dir(), fcnt) 
 
     if os.path.isfile(f_counts): 
         f = FortranFile(f_counts, 'r') 

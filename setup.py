@@ -31,7 +31,7 @@ if __name__=="__main__":
           url='',
           platforms=['*nix'],
           license='GPL',
-          requires = ['numpy', 'scipy', 'matplotlib', 'pyfftw'],
+          requires = ['numpy', 'scipy', 'h5py', 'pyfftw', 'pytest'],
           provides = ['pyspectrum'],
           packages = ['pyspectrum'], 
           ext_modules = [ext]
