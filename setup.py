@@ -13,6 +13,13 @@ try:
                 library_dirs = ["/opt/cray/pe/fftw/3.3.8.1/x86_64/lib"],
                 libraries = ['fftw3f'], 
                 include_dirs=[np.get_include(), "/opt/cray/pe/fftw/3.3.8.1/x86_64/include"])
+    elif os.environ['NERSC_HOST'] == 'cori': 
+        ext = Extension(name='estimator', 
+                sources=['pyspectrum/estimator.f'], 
+                language='f77', 
+                library_dirs = ["/opt/cray/pe/fftw/default/x86_64/lib"],
+                libraries = ['fftw3f'], 
+                include_dirs=[np.get_include(), "/opt/cray/pe/fftw/default/x86_64/include"])
 except KeyError: 
     ext = Extension(name='estimator', 
             sources=['pyspectrum/estimator.f'], 
