@@ -1,3 +1,3 @@
-include dat/fftw3.f
-include dat/*.pyfftw 
-include dat/test_box.hdf5
+include pyspectrum/dat/fftw3.f
+include pyspectrum/dat/*.pyfftw 
+include pyspectrum/dat/test_box.hdf5
