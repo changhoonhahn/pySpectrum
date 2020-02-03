@@ -1,3 +1,0 @@
-include pyspectrum/dat/fftw3.f
-include pyspectrum/dat/*.pyfftw 
-include pyspectrum/dat/test_box.hdf5

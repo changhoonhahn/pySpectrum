@@ -36,7 +36,7 @@ if __name__=="__main__":
           author='ChangHoon Hahn',
           author_email='hahn.changhoon@gmail.com',
           url='',
-          include_package_data=True,
+          package_data={'pyspectrum': ['dat/fftw3.f', 'dat/*.pyfftw', 'dat/test_box.hdf5']},
           platforms=['*nix'],
           license='GPL',
           requires = ['numpy', 'scipy', 'h5py', 'pyfftw', 'pytest'],
