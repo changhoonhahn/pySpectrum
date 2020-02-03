@@ -36,6 +36,7 @@ if __name__=="__main__":
           author='ChangHoon Hahn',
           author_email='hahn.changhoon@gmail.com',
           url='',
+          include_package_data=True,
           platforms=['*nix'],
           license='GPL',
           requires = ['numpy', 'scipy', 'h5py', 'pyfftw', 'pytest'],
