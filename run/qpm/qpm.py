@@ -33,6 +33,9 @@ mpl.rcParams['ytick.major.width'] = 1.5
 mpl.rcParams['legend.frameon'] = False
 
 
+dir_dat = '/home/chhahn/data/pyspectrum/qpm/'
+
+
 def QPMspectra(rsd=False):     
     ''' calculate the powerspectrum and bispectrum of the QPM 
     catalog.
@@ -42,13 +45,13 @@ def QPMspectra(rsd=False):
     '''
     str_rsd = ''
     if rsd: str_rsd = '.rsd'
-    f_halo = ''.join([UT.dat_dir(), 'qpm/halo_ascii.dat'])
-    f_hdf5 = ''.join([UT.dat_dir(), 'qpm/halo.mlim1e13.Lbox1050.hdf5'])
-    f_pell = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13.Lbox1050', 
+    f_halo = ''.join([dir_dat, 'halo_ascii.dat'])
+    f_hdf5 = ''.join([dir_dat, 'halo.mlim1e13.Lbox1050.hdf5'])
+    f_pell = ''.join([dir_dat, 'pySpec.Plk.halo.mlim1e13.Lbox1050', 
         '.Ngrid360', str_rsd, '.dat']) 
-    f_pnkt = ''.join([UT.dat_dir(), 'qpm/pySpec.Plk.halo.mlim1e13.Lbox1050', 
+    f_pnkt = ''.join([dir_dat, 'pySpec.Plk.halo.mlim1e13.Lbox1050', 
         '.Ngrid360', '.nbodykit', str_rsd, '.dat']) 
-    f_b123 = ''.join([UT.dat_dir(), 'qpm/pySpec.B123.halo.mlim1e13.Lbox1050', 
+    f_b123 = ''.join([dir_dat, 'pySpec.B123.halo.mlim1e13.Lbox1050', 
         '.Ngrid360', '.Nmax40', '.Ncut3', '.step3', '.pyfftw', str_rsd, '.dat']) 
 
     Lbox = 1050. 
@@ -98,20 +101,16 @@ def QPMspectra(rsd=False):
     nhalo = float(Nhalo) / Lbox**3
     print('number density = %f' % nhalo) 
     print('1/nbar = %f' % (1./nhalo))
-
     # calculate powerspectrum 
     if not os.path.isfile(f_pell): 
-        print('--- calculating the FFT ---') 
-        if not rsd: 
-            delta = pySpec.FFTperiodic(xyz.T, fft='fortran', Lbox=Lbox, Ngrid=360, silent=False) 
-        else: 
-            delta = pySpec.FFTperiodic(xyz_s.T, fft='fortran', Lbox=Lbox, Ngrid=360, silent=False) 
-        delta_fft = pySpec.reflect_delta(delta, Ngrid=360) 
-
         # calculate powerspectrum monopole  
-        k, p0k, cnts = pySpec.Pk_periodic(delta_fft) 
-        k *= kf  
-        p0k = p0k/(kf**3) - 1./nhalo 
+        if not rsd: 
+            spec = pySpec.Pk_periodic(xyz.T, Lbox=Lbox, Ngrid=360, silent=False) 
+        else: 
+            spec = pySpec.Pk_periodic(xyz_s.T, Lbox=Lbox, Ngrid=360, silent=False) 
+        k       = spec['k'] 
+        p0k     = spec['p0k']
+        cnts    = spec['counts']
         # save to file 
         hdr = ('pyspectrum P_l=0(k) calculation. Lbox=%.1f, k_f=%.5e, SN=%.5e' % (Lbox, kf, 1./nhalo))
         np.savetxt(f_pell, np.array([k, p0k, cnts]).T, fmt='%.5e %.5e %.5e', delimiter='\t', header=hdr) 
@@ -193,8 +192,7 @@ def QPMspectra(rsd=False):
     sub = fig.add_subplot(111)
     sub.plot(k, p0k, c='k', lw=1, label='pySpectrum') 
     sub.plot(plk['k'], plk['p0k'], c='C1', lw=1, label='nbodykit') 
-    iksort = np.argsort(i_k) 
-    sub.plot(i_k[iksort] * kf, p0k1[iksort], c='k', lw=1, ls='--', label='bispectrum code') 
+    sub.plot(i_k * kf, p0k1, c='k', lw=1, ls='--', label='bispectrum code') 
     sub.legend(loc='lower left', fontsize=20) 
     sub.set_ylabel('$P_0(k)$', fontsize=25) 
     #sub.set_ylim([1e2, 3e4]) 
@@ -202,7 +200,7 @@ def QPMspectra(rsd=False):
     sub.set_xlabel('$k$', fontsize=25) 
     sub.set_xlim([3e-3, 1.]) 
     sub.set_xscale('log') 
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/qpm_p0k', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(''.join([dir_dat, 'qpm_p0k', str_rsd, '.png']), bbox_inches='tight')
 
     # plot bispectrum shape triangle plot 
     nbin = 31 
@@ -217,7 +215,7 @@ def QPMspectra(rsd=False):
     sub.set_title(r'$Q(k_1, k_2, k_3)$ QPM halo catalog', fontsize=25)
     sub.set_xlabel('$k_3/k_1$', fontsize=25)
     sub.set_ylabel('$k_2/k_1$', fontsize=25)
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/qpm_Q123_shape', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(''.join([dir_dat, 'qpm_Q123_shape', str_rsd, '.png']), bbox_inches='tight')
     
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
@@ -227,7 +225,7 @@ def QPMspectra(rsd=False):
     sub.set_title(r'$B(k_1, k_2, k_3)$ QPM halo catalog', fontsize=25)
     sub.set_xlabel('$k_3/k_1$', fontsize=25)
     sub.set_ylabel('$k_2/k_1$', fontsize=25)
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/qpm_B123_shape', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(''.join([dir_dat, 'qpm_B123_shape', str_rsd, '.png']), bbox_inches='tight')
 
     # plot bispectrum amplitude 
     fig = plt.figure(figsize=(10,5))
@@ -237,7 +235,7 @@ def QPMspectra(rsd=False):
     sub.set_xlim([0, len(b123)]) 
     sub.set_ylabel(r'$Q(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_ylim([0., 1.]) 
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/qpm_Q123', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(''.join([dir_dat, 'qpm_Q123', str_rsd, '.png']), bbox_inches='tight')
 
     # plot bispectrum amplitude 
     fig = plt.figure(figsize=(10,5))
@@ -247,7 +245,7 @@ def QPMspectra(rsd=False):
     sub.set_xlim([0, len(b123)]) 
     sub.set_ylabel(r'$B(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_yscale('log') 
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/qpm_B123', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(''.join([dir_dat,'qpm_B123', str_rsd, '.png']), bbox_inches='tight')
     return None
 
 
@@ -573,10 +571,11 @@ def AEM_rzspace():
 
 
 if __name__=="__main__": 
-    #QPMspectra(rsd=True)
+    #QPMspectra(rsd=False)
+    QPMspectra(rsd=True)
     #QPMspectra(rsd=False)
     #AEMspectra(rsd=True)
     #AEMspectra(rsd=False)
     #QPM_AEM(rsd=False)
     #QPM_AEM(rsd=True)
-    AEM_rzspace()
+    #AEM_rzspace()
