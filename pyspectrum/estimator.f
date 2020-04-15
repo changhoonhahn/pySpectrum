@@ -15,7 +15,7 @@ cc*******************************************************************
       real, allocatable :: normk(:,:),norm1(:,:)
 c      include '/usr/local/include/fftw3.f'
 c      include '~/project/pySpectrum/dat/fftw3.f'
-      include '../dat/fftw3.f'
+      include 'dat/fftw3.f'
 
       ncuts=ncut/int(step)
       nsideD=nside**Dim
@@ -270,7 +270,7 @@ cc*******************************************************************
       integer*8 planf
 c      include '/usr/local/include/fftw3.f'
 c      include '~/project/pySpectrum/dat/fftw3.f'
-      include '../dat/fftw3.f'
+      include 'dat/fftw3.f'
       write(*,*)'making plan'
       call sfftw_plan_dft_3d(planf,Ngrid,Ngrid,Ngrid,dtl,dtl, 
      &          FFTW_BACKWARD,FFTW_ESTIMATE)

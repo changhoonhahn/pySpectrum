@@ -275,6 +275,7 @@ def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft='pyfftw', nthreads=1, sil
     for j in range(Ncut // step, Nmax + 1):
         if fft == 'pyfftw':
             tempK = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex64')
+            tempK[:] = 0.
         else: 
             tempK = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64)
         tempK[irk == j] = delta[irk == j] 
