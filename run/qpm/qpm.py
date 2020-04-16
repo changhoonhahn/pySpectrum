@@ -33,7 +33,7 @@ mpl.rcParams['ytick.major.width'] = 1.5
 mpl.rcParams['legend.frameon'] = False
 
 
-dir_dat = '/home/chhahn/data/pyspectrum/qpm/'
+dir_dat = '/Users/ChangHoon/data/pyspectrum/'
 
 
 def QPMspectra(rsd=False):     
@@ -45,14 +45,14 @@ def QPMspectra(rsd=False):
     '''
     str_rsd = ''
     if rsd: str_rsd = '.rsd'
-    f_halo = ''.join([dir_dat, 'halo_ascii.dat'])
-    f_hdf5 = ''.join([dir_dat, 'halo.mlim1e13.Lbox1050.hdf5'])
-    f_pell = ''.join([dir_dat, 'pySpec.Plk.halo.mlim1e13.Lbox1050', 
-        '.Ngrid360', str_rsd, '.dat']) 
-    f_pnkt = ''.join([dir_dat, 'pySpec.Plk.halo.mlim1e13.Lbox1050', 
-        '.Ngrid360', '.nbodykit', str_rsd, '.dat']) 
-    f_b123 = ''.join([dir_dat, 'pySpec.B123.halo.mlim1e13.Lbox1050', 
-        '.Ngrid360', '.Nmax40', '.Ncut3', '.step3', '.pyfftw', str_rsd, '.dat']) 
+    f_halo = os.path.join(dir_dat, 'qpm', 'halo_ascii.dat')
+    f_hdf5 = os.path.join(dir_dat, 'qpm', 'halo.mlim1e13.Lbox1050.hdf5')
+    f_pell = os.path.join(dir_dat, 'qpm', 
+            'pySpec.Plk.halo.mlim1e13.Lbox1050.Ngrid360%s.dat' % str_rsd)
+    f_pnkt = os.path.join(dir_dat, 'qpm', 
+            'pySpec.Plk.halo.mlim1e13.Lbox1050.Ngrid360.nbodykit%s.dat' % str_rsd) 
+    f_b123 = os.path.join(dir_dat, 'qpm', 
+            'pySpec.B123.halo.mlim1e13.Lbox1050.Ngrid360.Nmax40.Ncut3.step3.pyfftw%s.dat' % str_rsd) 
 
     Lbox = 1050. 
     kf = 2.*np.pi/Lbox
@@ -162,10 +162,12 @@ def QPMspectra(rsd=False):
     # calculate bispectrum 
     if not os.path.isfile(f_b123): 
         # calculate bispectrum 
-        if not rsd: 
-            bispec = pySpec.Bk_periodic(xyz.T, Lbox=Lbox, Ngrid=360, Nmax=40, Ncut=3, step=3, fft='pyfftw', nthreads=1, silent=False) 
+        if rsd: 
+            bispec = pySpec.Bk_periodic(xyz_s.T, Lbox=Lbox, Ngrid=360, Nmax=40,
+                    Ncut=3, step=3, fft='pyfftw', nthreads=1, silent=False) 
         else: 
-            bispec = pySpec.Bk_periodic(xyz_s.T, Lbox=Lbox, Ngrid=360, Nmax=40, Ncut=3, step=3, fft='pyfftw', nthreads=1, silent=False) 
+            bispec = pySpec.Bk_periodic(xyz.T, Lbox=Lbox, Ngrid=360, Nmax=40,
+                    Ncut=3, step=3, fft='pyfftw', nthreads=1, silent=False) 
 
         i_k = bispec['i_k1']
         j_k = bispec['i_k2']
@@ -254,20 +256,23 @@ def AEMspectra(rsd=False):
     '''
     str_rsd = ''
     if rsd: str_rsd = '.rsd'
-    f_halo = ''.join([UT.dat_dir(), 'aemulus/aemulus_test002_halos.mlim1e13.hdf5'])
-    f_hdf5 = ''.join([UT.dat_dir(), 'aemulus/aemulus_test002_halos.mlim1e13.hdf5'])
-    f_pell = ''.join([UT.dat_dir(), 'aemulus/pySpec.Plk.halo.mlim1e13.Ngrid360', str_rsd, '.dat']) 
-    f_pnkt = ''.join([UT.dat_dir(), 'aemulus/pySpec.Plk.halo.mlim1e13.Ngrid360.nbodykit', str_rsd, '.dat']) 
-    f_b123 = ''.join([UT.dat_dir(), 'aemulus/pySpec.B123.halo.mlim1e13.Ngrid360.Nmax40.Ncut3.step3.pyfftw', str_rsd, '.dat']) 
+    f_halo = os.path.join(dir_dat, 'aemulus', 'aemulus_test002_halos.mlim1e13.hdf5')
+    f_hdf5 = os.path.join(dir_dat, 'aemulus', 'aemulus_test002_halos.mlim1e13.hdf5')
+    f_pell = os.path.join(dir_dat, 'aemulus',
+            'pySpec.Plk.halo.mlim1e13.Lbox1050.Ngrid360%s.dat' % str_rsd) 
+    f_pnkt = os.path.join(dir_dat, 'aemulus',
+            'pySpec.Plk.halo.mlim1e13.Lbox1050.Ngrid360.nbodykit%s.dat' % str_rsd) 
+    f_b123 = os.path.join(dir_dat, 'aemulus', 
+            'pySpec.B123.halo.mlim1e13.Lbox1050.Ngrid360.Nmax40.Ncut3.step3.pyfftw%s.dat' % str_rsd) 
 
     Lbox=1050.
     kf = 2.*np.pi/Lbox
 
     if not os.path.isfile(f_hdf5):  
         f = h5py.File(f_halo, 'r') 
-        xyz     = f['xyz'].value
-        vxyz    = f['vxyz'].value
-        mh      = f['mhalo'].value
+        xyz     = f['xyz'][...]
+        vxyz    = f['vxyz'][...]
+        mh      = f['mhalo'][...]
         xyz_s   = pySpec.applyRSD(xyz.T, vxyz.T, 0.55, h=0.7, omega0_m=0.340563, LOS='z', Lbox=Lbox) 
         xyz_s   = xyz_s.T
 
@@ -293,17 +298,14 @@ def AEMspectra(rsd=False):
 
     # calculate powerspectrum 
     if not os.path.isfile(f_pell): 
-        # calculate FFTs
         if not rsd: 
-            delta = pySpec.FFTperiodic(xyz.T, fft='fortran', Lbox=Lbox, Ngrid=360, silent=False) 
+            spec = pySpec.Pk_periodic(xyz.T, Lbox=Lbox, Ngrid=360, silent=False) 
         else: 
-            delta = pySpec.FFTperiodic(xyz_s.T, fft='fortran', Lbox=Lbox, Ngrid=360, silent=False) 
-        delta_fft = pySpec.reflect_delta(delta, Ngrid=360) 
-
+            spec = pySpec.Pk_periodic(xyz_s.T, Lbox=Lbox, Ngrid=360, silent=False) 
         # calculate powerspectrum monopole  
-        k, p0k, cnts = pySpec.Pk_periodic(delta_fft) 
-        k = k * kf 
-        p0k = p0k/kf**3 - 1./nhalo
+        k       = spec['k'] 
+        p0k     = spec['p0k']
+        cnts    = spec['counts']
         
         # save to file 
         hdr = 'pyspectrum P_l=0(k) calculation. k_f = 2pi/1050.'
@@ -394,7 +396,7 @@ def AEMspectra(rsd=False):
     sub.set_xlabel('$k$', fontsize=25) 
     sub.set_xlim([3e-3, 1.]) 
     sub.set_xscale('log') 
-    fig.savefig(''.join([UT.dat_dir(), 'aemulus/aemulus_p0k', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'aemulus', 'aemulus_p0k%s.png' % str_rsd), bbox_inches='tight')
 
     # plot bispectrum shape triangle plot 
     nbin = 31 
@@ -409,7 +411,7 @@ def AEMspectra(rsd=False):
     sub.set_title(r'$Q(k_1, k_2, k_3)$ QPM halo catalog', fontsize=25)
     sub.set_xlabel('$k_3/k_1$', fontsize=25)
     sub.set_ylabel('$k_2/k_1$', fontsize=25)
-    fig.savefig(''.join([UT.dat_dir(), 'aemulus/aemulus_Q123_shape', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'aemulus', 'aemulus_Q123_shape%s.png' % str_rsd), bbox_inches='tight')
     
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
@@ -419,7 +421,7 @@ def AEMspectra(rsd=False):
     sub.set_title(r'$B(k_1, k_2, k_3)$ QPM halo catalog', fontsize=25)
     sub.set_xlabel('$k_3/k_1$', fontsize=25)
     sub.set_ylabel('$k_2/k_1$', fontsize=25)
-    fig.savefig(''.join([UT.dat_dir(), 'aemulus/aemulus_B123_shape', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'aemulus', 'aemulus_B123_shape%s.png' % str_rsd), bbox_inches='tight')
 
     # plot bispectrum amplitude 
     fig = plt.figure(figsize=(10,5))
@@ -429,7 +431,7 @@ def AEMspectra(rsd=False):
     sub.set_xlim([0, len(b123)]) 
     sub.set_ylabel(r'$Q(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_ylim([0., 1.]) 
-    fig.savefig(''.join([UT.dat_dir(), 'aemulus/aemulus_Q123', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'aemulus', 'aemulus_Q123%s.png' % str_rsd), bbox_inches='tight')
 
     # plot bispectrum amplitude 
     fig = plt.figure(figsize=(10,5))
@@ -439,16 +441,20 @@ def AEMspectra(rsd=False):
     sub.set_xlim([0, len(b123)]) 
     sub.set_ylabel(r'$B(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_yscale('log') 
-    fig.savefig(''.join([UT.dat_dir(), 'aemulus/aemulus_B123', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'aemulus', 'aemulus_B123%s.png' % str_rsd), bbox_inches='tight')
     return None
 
 
 def QPM_AEM(rsd=False): 
     str_rsd = ''
     if rsd: str_rsd = '.rsd'
-    f_pell = lambda sim: ''.join([UT.dat_dir(), sim, '/pySpec.Plk.halo.mlim1e13.Ngrid360', str_rsd, '.dat']) 
-    f_pnkt = lambda sim: ''.join([UT.dat_dir(), sim, '/pySpec.Plk.halo.mlim1e13.Ngrid360.nbodykit', str_rsd, '.dat']) 
-    f_b123 = lambda sim: ''.join([UT.dat_dir(), sim, '/pySpec.B123.halo.mlim1e13.Ngrid360.Nmax40.Ncut3.step3.pyfftw', str_rsd, '.dat']) 
+    f_pell = lambda sim: os.path.join(dir_dat, sim, 
+            'pySpec.Plk.halo.mlim1e13.Lbox1050.Ngrid360%s.dat' % str_rsd) 
+    f_pnkt = lambda sim: os.path.join(dir_dat, sim, 
+            'pySpec.Plk.halo.mlim1e13.Lbox1050.Ngrid360.nbodykit%s.dat' % str_rsd) 
+    f_b123 = lambda sim: os.path.join(dir_dat, sim, 
+            'pySpec.B123.halo.mlim1e13.Lbox1050.Ngrid360.Nmax40.Ncut3.step3.pyfftw%s.dat'
+            % str_rsd) 
     
     Lbox_qpm = 1050. 
     Lbox_aem = 1050. 
@@ -475,7 +481,7 @@ def QPM_AEM(rsd=False):
     sub.set_xlabel('$k$', fontsize=25) 
     sub.set_xlim([8e-3, 0.5]) 
     sub.set_xscale('log') 
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/p0k_qpm_aemulus', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'qpm', 'p0k_qpm_aemulus%s.png' % str_rsd), bbox_inches='tight')
 
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
@@ -507,7 +513,7 @@ def QPM_AEM(rsd=False):
     sub.set_ylim([1e8, 6e9]) 
     sub.set_xlabel(r'$k_1 \le k_2 \le k_3$ triangle indices', fontsize=25) 
     sub.set_xlim([0, np.sum(klim)])
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/B123_qpm_aemulus', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'qpm', 'B123_qpm_aemulus%s.png' % str_rsd), bbox_inches='tight')
 
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
@@ -517,19 +523,65 @@ def QPM_AEM(rsd=False):
     i_k, j_k, l_k, p0k1, p0k2, p0k3, b123, q123, counts, b123_sn = np.loadtxt(f_b123('qpm'),
             skiprows=1, unpack=True, usecols=range(10)) 
     sub.scatter(range(len(q123)), q123, c='C1', s=2, label='QPM') 
-    sub.legend(loc='upper right', fontsize=20) 
+    sub.legend(loc='lower left', handletextpad=0., markerscale=4, fontsize=25) 
     sub.set_ylabel('$Q(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_xlabel('$k_1 > k_2 > k_3$ triangle indices', fontsize=25) 
     sub.set_xlim([0, len(q123)]) 
     sub.set_ylim([0., 1.]) 
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123_qpm_aemulus', str_rsd, '.png']), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'qpm', 'Q123_qpm_aemulus%s.png' % str_rsd), bbox_inches='tight')
+
+    # plot Q shape triangle plot 
+    nbin = 31 
+    x_bins = np.linspace(0., 1., nbin+1)
+    y_bins = np.linspace(0.5, 1., (nbin//2) + 1) 
+
+    fig = plt.figure(figsize=(12,4))
+    sub = fig.add_subplot(121)
+    i_k, j_k, l_k, p0k1, p0k2, p0k3, b123, q123, counts, b123_sn = np.loadtxt(f_b123('qpm'),
+            skiprows=1, unpack=True, usecols=range(10)) 
+    Bgrid = Plots._BorQgrid(
+            l_k.astype(float)/i_k.astype(float), 
+            j_k.astype(float)/i_k.astype(float), 
+            q123, 
+            counts, 
+            x_bins, 
+            y_bins)
+    bplot = plt.pcolormesh(x_bins, y_bins, Bgrid.T, vmin=0, vmax=1, cmap='RdBu')
+
+    sub.text(0.95, 0.05, 'QPM', ha='right', va='bottom', transform=sub.transAxes, fontsize=25)
+    sub.set_ylabel('$k_2/k_1$', fontsize=25)
+
+    sub = fig.add_subplot(122)
+    i_k, j_k, l_k, p0k1, p0k2, p0k3, b123, q123, counts, b123_sn = \
+            np.loadtxt(f_b123('aemulus'), skiprows=1, unpack=True,
+                    usecols=range(10)) 
+    Bgrid = Plots._BorQgrid(
+            l_k.astype(float)/i_k.astype(float), 
+            j_k.astype(float)/i_k.astype(float), 
+            q123, 
+            counts, 
+            x_bins, 
+            y_bins)
+    bplot = plt.pcolormesh(x_bins, y_bins, Bgrid.T, vmin=0, vmax=1, cmap='RdBu')
+    sub.text(0.95, 0.05, 'Aemulus', ha='right', va='bottom', transform=sub.transAxes, fontsize=25)
+
+    bkgd = fig.add_subplot(111, frameon=False)
+    bkgd.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+    bkgd.set_xlabel(r'$k_3/k_1$', labelpad=10, fontsize=25) 
+
+    cbar_ax = fig.add_axes([0.925, 0.15, 0.01, 0.7])
+    cbar = fig.colorbar(bplot, cax=cbar_ax)
+    cbar.set_label('$Q(k_1, k_2, k_3)$', labelpad=10, rotation=90, fontsize=20)
+
+    fig.subplots_adjust(wspace=0.15) 
+    fig.savefig(os.path.join(dir_dat, 'qpm', 'Q123_shape_qpm_aemulus%s.png' % str_rsd), bbox_inches='tight')
     return None
 
 
 def AEM_rzspace(): 
     ''' comparison between real and redshift space 
     '''
-    f_b123 = lambda sim, rsd: os.path.join(UT.dat_dir(), sim, 'pySpec.B123.halo.mlim1e13.Ngrid360.Nmax40.Ncut3.step3.pyfftw%s.dat' % ['', '.rsd'][rsd]) 
+    f_b123 = lambda sim, rsd: os.path.join(UT.dir_dat(), sim, 'pySpec.B123.halo.mlim1e13.Ngrid360.Nmax40.Ncut3.step3.pyfftw%s.dat' % ['', '.rsd'][rsd]) 
     Lbox_aem = 1050. 
     kf_aem = 2.*np.pi/Lbox_aem
 
@@ -552,7 +604,7 @@ def AEM_rzspace():
     sub.set_yscale('log') 
     sub.set_xlabel(r'$k_1 \le k_2 \le k_3$ triangle indices', fontsize=25) 
     sub.set_xlim([0, np.sum(klim)])
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/B123_aemulus_rzspace.png']), bbox_inches='tight')
+    fig.savefig(''.join([UT.dir_dat(), 'qpm/B123_aemulus_rzspace.png']), bbox_inches='tight')
 
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
@@ -565,17 +617,16 @@ def AEM_rzspace():
     sub.set_xlabel('$k_1 > k_2 > k_3$ triangle indices', fontsize=25) 
     sub.set_xlim([0, np.sum(klim)]) 
     sub.set_ylim([0., 1.]) 
-    fig.savefig(''.join([UT.dat_dir(), 'qpm/Q123_aemulus_rzspace.png']), bbox_inches='tight')
+    fig.savefig(''.join([UT.dir_dat(), 'qpm/Q123_aemulus_rzspace.png']), bbox_inches='tight')
     return None
 
 
 
 if __name__=="__main__": 
-    #QPMspectra(rsd=False)
-    QPMspectra(rsd=True)
+    #QPMspectra(rsd=True)
     #QPMspectra(rsd=False)
     #AEMspectra(rsd=True)
     #AEMspectra(rsd=False)
-    #QPM_AEM(rsd=False)
-    #QPM_AEM(rsd=True)
+    QPM_AEM(rsd=False)
+    QPM_AEM(rsd=True)
     #AEM_rzspace()
