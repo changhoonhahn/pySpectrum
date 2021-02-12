@@ -26,8 +26,8 @@ except KeyError:
             language='f77', 
             library_dirs = ["/usr/local/lib"],
             libraries = ['fftw3f'], 
-            include_dirs=[np.get_include(), '/usr/local/include'], 
-            extra_f77_compile_args=['-fcheck=all'])
+            include_dirs=[np.get_include(), '/usr/local/include'],
+            extra_f77_compile_args=['-fcheck=all', '-fallow-argument-mismatch'])
 
 if __name__=="__main__": 
     setup(name = 'pySpectrum',
