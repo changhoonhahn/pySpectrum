@@ -7,14 +7,18 @@ from astropy.cosmology import FlatLambdaCDM
 # -- local -- 
 import estimator as fEstimate
 from . import dat_dir 
+from . import util as UT 
 
 
-def Bk_periodic(xyz, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, fft='pyfftw', nthreads=1, silent=True): 
+def Bk_periodic(xyz, w=None, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, fft='pyfftw', nthreads=1, silent=True): 
     ''' calculate the bispectrum for periodic box. this function is a wrapper for FFTperiodic
     and Bk123_periodic, which contains the actual calculations. 
 
     :param xyz: 
         3xN dimensional array of the positions of objects (e.g. galaxies, halos) 
+
+    :param w: 
+        N dimensional array of weights
 
     :param Lbox: (default: 2600.)
         box size 
@@ -50,7 +54,7 @@ def Bk_periodic(xyz, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, fft='pyfftw'
     assert Ngrid == 360, "currently only tested for 360; I'm being lazy..."
 
     if not silent: print('--- calculating the FFT ---') 
-    delta = FFTperiodic(xyz, Lbox=Lbox, Ngrid=Ngrid, fft=fft, silent=silent) 
+    delta = FFTperiodic(xyz, w=w, Lbox=Lbox, Ngrid=Ngrid, fft=fft, silent=silent) 
     delta_fft = reflect_delta(delta, Ngrid=Ngrid) 
 
     if not silent: print('--- calculating the bispectrum ---') 
@@ -74,7 +78,7 @@ def Bk_periodic(xyz, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, fft='pyfftw'
     return bispec
 
 
-def Pk_periodic_rsd(xyz, Lbox=2600, Ngrid=360, rsd=2, Nmubin=10, fft='pyfftw', code='fortran', silent=True): 
+def Pk_periodic_rsd(xyz, w=None, Lbox=2600, Ngrid=360, rsd=2, Nmubin=10, fft='pyfftw', code='fortran', silent=True): 
     '''calculate the powerspectrum multipole for periodic box with redshift-space distortions along `rsd` axes. 
     
     :param xyz: 
@@ -116,7 +120,7 @@ def Pk_periodic_rsd(xyz, Lbox=2600, Ngrid=360, rsd=2, Nmubin=10, fft='pyfftw', c
         print('%i positions in %i box' % (N, Lbox))  
         print('nbar = %f' % nbar)  
 
-    delta = FFTperiodic(xyz, Lbox=Lbox, Ngrid=Ngrid, fft=fft, silent=silent) 
+    delta = FFTperiodic(xyz, w=w, Lbox=Lbox, Ngrid=Ngrid, fft=fft, silent=silent) 
     k, p0k, p2k, p4k, n_k, k_kmu, mu_kmu, p_kmu, n_kmu = \
             _Pk_periodic_rsd(delta, Lbox=Lbox, rsd=rsd, Nmubin=Nmubin, code=code)
 
@@ -139,7 +143,7 @@ def Pk_periodic_rsd(xyz, Lbox=2600, Ngrid=360, rsd=2, Nmubin=10, fft='pyfftw', c
     return pspec 
 
 
-def Pk_periodic(xyz, Lbox=2600, Ngrid=360, fft='pyfftw', silent=True): 
+def Pk_periodic(xyz, w=None, Lbox=2600, Ngrid=360, fft='pyfftw', silent=True): 
     ''' calculate the powerspectrum for periodic box in **real**-space. For redshift-space see
     `Pk_periodic_rsd`. This function is a wrapper for FFTperiodic and _Pk_periodic
     
@@ -165,7 +169,7 @@ def Pk_periodic(xyz, Lbox=2600, Ngrid=360, fft='pyfftw', silent=True):
         print('nbar = %f' % nbar)  
 
     if not silent: print('--- calculating the FFT ---') 
-    delta = FFTperiodic(xyz, Lbox=Lbox, Ngrid=Ngrid, fft=fft, silent=silent) 
+    delta = FFTperiodic(xyz, w=w, Lbox=Lbox, Ngrid=Ngrid, fft=fft, silent=silent) 
     delta_fft = reflect_delta(delta, Ngrid=Ngrid) 
 
     k, p0k, counts = _Pk_periodic(delta_fft, Lbox=Lbox) 
@@ -183,9 +187,218 @@ def Pk_periodic(xyz, Lbox=2600, Ngrid=360, fft='pyfftw', silent=True):
     return pspec 
 
 
-def FFTperiodic(xyz, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True): 
-    ''' Put galaxies in a grid and FFT it. This function wraps some of
-    the functions in estimator.f and does the same thing as roman's 
+def FFT_survey_mono(radecz, nb, w=None, Lbox=2600., Ngrid=360, cosmo=None, fft='pyfftw', silent=True):
+    ''' Put galaxies from a survey onto a grid and FFT it. This function wraps
+    some of the functions in estimator.f 
+
+    :param radecz: 
+        3 x N dimensional array that specify the [ra, dec, z]
+
+    :parapm w: (default: None) 
+        N dimensional array that specifies the weight. 
+
+    :param Lbox: (default: 2600.) 
+        Box size
+
+    :param Ngrid: (default: 360) 
+        grid size 
+
+    :param cosmo: (default: None) 
+        astropy.cosmology objec that specifies the cosmology for converting RA,
+        Dec, z to cartesian coordinates.
+
+    :param fft: (default: 'pyfftw') 
+        determines which fftw version to use. Options are 'pyfftw' 
+        and 'fortran'. 
+
+    :param silent: (default: True) 
+        if not silent then it'll output stuff  
+
+
+    notes
+    -----
+
+    '''
+    kf_ks = np.float32(float(Ngrid) / Lbox)
+    N = np.int32(xyz.shape[1]) # number of objects 
+    
+    # default cosmology 
+    if cosmo is None: 
+        cosmo = FlatLambdaCDM(H0=67.6, Om0=0.31)  
+
+    if w is None: 
+        w = np.ones(N)
+
+    # convert ra, dec, z to cartesian coordinates 
+    xyz = UT.radecz_to_cartesian(radecz, cosmo=cosmo) 
+    xyz_max = np.max(xyz, axis=1) 
+    assert np.sum(xyz_max >= Lbox) == 0
+
+    if not silent: 
+        print(['%.1f < %s < %.1f\n' % (mi, _axis, ma) for _axis, mi, ma in
+            zip(['x', 'y', 'z'], np.min(xyz, axis=1), np.max(xyz, axis=1))])
+
+    # position of galaxies (checked with fortran) 
+    xyzs = np.zeros([3, N], dtype=np.float32, order='F') 
+    xyzs[0,:] = np.clip(xyz[0,:], 0., Lbox*(1.-1e-6))
+    xyzs[1,:] = np.clip(xyz[1,:], 0., Lbox*(1.-1e-6))
+    xyzs[2,:] = np.clip(xyz[2,:], 0., Lbox*(1.-1e-6))
+    if not silent: print('%i positions' % N) 
+
+    # calculate I10,I12d,I22,I13d,I23,I33
+    I10 = float(N) 
+    I12 = np.sum(w**2) 
+    I13 = np.sum(w**3) 
+    I22 = np.sum(nb * w**2)
+    I23 = np.sum(nb * w**3) 
+    I33 = np.sum(nb**2 * w**3) 
+
+    # calculate delta0(k) 
+    _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F')
+    fEstimate.assign_quad(xyzs, w, _delta, kf_ks, 0, 0, 0, 0, N, Ngrid) # assign to grid
+    ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid, silent=silent) # run FFT
+    fEstimate.fcomb(ifft_delta,N,Ngrid) # combine 
+    delta0 = ifft_delta[:Ngrid//2+1,:,:]
+    if not silent: print('delta_0(k) complete') 
+    
+    return delta0, I10, I12, I13, I22, I23, I33 
+
+
+def FFT_survey(radecz, w=None, Lbox=2600., Ngrid=360, cosmo=None, fft='pyfftw', silent=True): 
+    ''' Put galaxies from a survey onto a grid and FFT it. This function wraps
+    some of the functions in estimator.f and does the same thing as roman's
+    zmapFFTil4_aniso_gen.f
+
+    :param radecz: 
+        3 x N dimensional array that specify the [ra, dec, z]
+
+    :parapm w: (default: None) 
+        N dimensional array that specifies the weight. 
+
+    :param Lbox: (default: 2600.) 
+        Box size
+
+    :param Ngrid: (default: 360) 
+        grid size 
+
+    :param cosmo: (default: None) 
+        astropy.cosmology objec that specifies the cosmology for converting RA,
+        Dec, z to cartesian coordinates.
+
+    :param fft: (default: 'pyfftw') 
+        determines which fftw version to use. Options are 'pyfftw' 
+        and 'fortran'. 
+
+    :param silent: (default: True) 
+        if not silent then it'll output stuff  
+
+
+    notes
+    -----
+
+    '''
+    kf_ks = np.float32(float(Ngrid) / Lbox)
+    N = np.int32(xyz.shape[1]) # number of objects 
+    
+    # default cosmology 
+    if cosmo is None: 
+        cosmo = FlatLambdaCDM(H0=67.6, Om0=0.31)  
+
+    if w is None: 
+        w = np.ones(N)
+
+    # convert ra, dec, z to cartesian coordinates 
+    xyz = UT.radecz_to_cartesian(radecz, cosmo=cosmo) 
+
+    if not silent: 
+        print(['%.1f < %s < %.1f\n' % (mi, _axis, ma) for _axis, mi, ma in
+            zip(['x', 'y', 'z'], np.min(xyz, axis=1), np.max(xyz, axis=1))])
+
+    # position of galaxies (checked with fortran) 
+    xyzs = np.zeros([3, N], dtype=np.float32, order='F') 
+    xyzs[0,:] = np.clip(xyz[0,:], 0., Lbox*(1.-1e-6))
+    xyzs[1,:] = np.clip(xyz[1,:], 0., Lbox*(1.-1e-6))
+    xyzs[2,:] = np.clip(xyz[2,:], 0., Lbox*(1.-1e-6))
+    if not silent: print('%i positions' % N) 
+    
+    # calculate I10,I12d,I22,I13d,I23,I33
+
+    _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F')
+    fEstimate.assign_quad(xyzs, w, _delta, kf_ks, 0, 0, 0, 0, N, Ngrid) # assign to grid
+    ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid, silent=silent) # run FFT
+    fEstimate.fcomb(ifft_delta,N,Ngrid) # combine 
+    delta0 = ifft_delta[:Ngrid//2+1,:,:]
+    if not silent: print('delta_0(k) complete') 
+    
+    # calculate delta2 
+    five_delta2 = _FiveDelta2g_1(xyzs, fft=fft, Ngrid=Ngrid) 
+    five_delta2 = _FiveDelta2g_1(xyzs, delta0, five_delta2, fft=fft, Ngrid=Ngrid) 
+
+    # calculat reweighted fields 
+    w = w**2
+    _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F')
+    fEstimate.assign_quad(xyzs, w, _delta, kf_ks, 0, 0, 0, 0, N, Ngrid) # assign to grid
+    ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid, silent=silent) # run FFT
+    fEstimate.fcomb(ifft_delta, N, Ngrid) # combine 
+    delta_w = ifft_delta[:Ngrid//2+1,:,:]
+    return delta0, five_delta2, delta_w
+
+
+def _FiveDelta2g_1(xyzs, fft='pyfftw', Ngrid=360): 
+    ''' calculate first part of 
+
+        (2 ell + 1) * delta_2 (Scoccimarro 2015 Eq. 20)
+    
+    More specific this function calculates 
+        delta_2 =  15/2 (kx^2 Qxx + ky^2 Qyy + kz^2 Qzz)
+
+    '''
+    # Qxx, Qyy, Qzz (Scoccimarro 2015 Eq. 19)
+    ifft_Qii = [] 
+    for i in range(3):
+        _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F')
+
+        # order is reversed. check this carefully
+        fEstimate.assign_quad(xyzs, _delta, kf_ks, i+1, i+1, 0, 0, N, Ngrid) 
+
+        ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid) # run FFT
+
+        fEstimate.fcomb(ifft_delta, N, Ngrid) # combine 
+
+        ifft_Qii.append(ifft_delta[:Ngrid//2+1,:,:]) 
+
+    fEstimate.FiveDelta2g_1(ifft_Qii[0], ifft_Qii[1], ifft_Qii[2], Ngrid)
+    return ifft_Qii[0]
+
+
+def _FiveDelta2g_2(xyzs, dcg, dcgxx, fft='pyfftw', Ngrid=360): 
+    ''' calculate second part of 
+
+        (2 ell + 1) x delta_2 (Scoccimarro 2015 Eq. 20)
+        = 5 x delta_2
+    '''
+    # Qxx, Qyy, Qzz (Scoccimarro 2015 Eq. 19)
+    ifft_Qij = [] 
+    for i, j in zip([1, 2, 3], [2, 3, 1]):
+        _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F')
+        
+        # order is reversed. check this carefully
+        fEstimate.assign_quad(xyzs, _delta, kf_ks, i, j, 0, 0, N, Ngrid) 
+
+        ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid) # run FFT
+
+        fEstimate.fcomb(ifft_delta, N, Ngrid) # combine 
+
+        ifft_Qij.append(ifft_delta[:Ngrid//2+1,:,:]) 
+
+    fEstimate.FiveDelta2g_2(dcg, dcgxx, ifft_Qii[0], ifft_Qii[1], ifft_Qii[2], Ngrid)
+    return dcgxx 
+
+
+def FFTperiodic(xyz, w=None, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True): 
+    ''' Place galaxies/halos/particles in a periodic box onto a grid to
+    estimate the density field and FFT it. This function wraps some of the
+    functions in estimator.f and does the same thing as roman's
     zmapFFTil4_aniso_gen.f 
 
     :param xyz: 
@@ -207,6 +420,9 @@ def FFTperiodic(xyz, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True):
     kf_ks = np.float32(float(Ngrid) / Lbox)
     N = np.int32(xyz.shape[1]) # number of objects 
 
+    if w is None: 
+        w = np.ones(N) 
+
     # position of galaxies (checked with fortran) 
     xyzs = np.zeros([3, N], dtype=np.float32, order='F') 
     xyzs[0,:] = np.clip(xyz[0,:], 0., Lbox*(1.-1e-6))
@@ -216,8 +432,22 @@ def FFTperiodic(xyz, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True):
     
     # assign galaxies to grid (checked with fortran) 
     _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F') # even indices (real) odd (complex)
-    fEstimate.assign2(xyzs, _delta, kf_ks, N, Ngrid) 
     
+    # the order is reversed. Don't touch it!!!
+    fEstimate.assign_quad(xyzs, w, _delta, kf_ks, 0, 0, 0, 0, N, Ngrid) 
+
+    ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid, silent=silent) 
+
+    if not silent: print('position grid FFTed') 
+    # combine fields 
+    fEstimate.fcomb(ifft_delta,N,Ngrid) 
+    if not silent: print('fcomb complete') 
+    return ifft_delta[:Ngrid//2+1,:,:]
+
+
+def _FFT(_delta, fft='pyfftw', Ngrid=360, silent=True): 
+    ''' run FFT 
+    '''
     if fft == 'pyfftw': 
         delta = pyfftw.n_byte_align_empty((Ngrid, Ngrid, Ngrid), 16, dtype='complex64')
     elif fft == 'fortran': 
@@ -228,20 +458,14 @@ def FFTperiodic(xyz, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True):
 
     # FFT delta (checked with fortran code, more or less matches)
     if fft == 'pyfftw': 
-        fftw_ob = pyfftw.builders.ifftn(delta, planner_effort='FFTW_ESTIMATE') # axes=(0,1,2,))
-        #ifft_delta = fftw_ob(normalise_idft=False)
+        fftw_ob = pyfftw.builders.ifftn(delta, planner_effort='FFTW_ESTIMATE') 
         ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype='complex64', order='F') 
         ifft_delta[:,:,:] = fftw_ob(normalise_idft=False)
     elif fft == 'fortran': 
         ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64, order='F') 
         fEstimate.ffting(delta, N, Ngrid) 
         ifft_delta[:,:,:] = delta[:,:,:]
-
-    if not silent: print('position grid FFTed') 
-    # combine fields 
-    fEstimate.fcomb(ifft_delta,N,Ngrid) 
-    if not silent: print('fcomb complete') 
-    return ifft_delta[:Ngrid//2+1,:,:]
+    return ifft_delta
 
 
 def Bk123_periodic(delta, Nmax=40, Ncut=3, step=3, fft='pyfftw', nthreads=1, silent=True): 

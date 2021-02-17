@@ -33,7 +33,7 @@ mpl.rcParams['ytick.major.width'] = 1.5
 mpl.rcParams['legend.frameon'] = False
 
 
-dir_dat = '/Users/ChangHoon/data/pyspectrum/'
+dir_dat = '/Users/chahah/data/pyspectrum/'
 
 
 def QPMspectra(rsd=False):     
@@ -447,7 +447,11 @@ def AEMspectra(rsd=False):
 
 def QPM_AEM(rsd=False): 
     str_rsd = ''
-    if rsd: str_rsd = '.rsd'
+    str_rsd_pdf = ''
+    if rsd: 
+        str_rsd = '.rsd'
+        str_rsd_pdf = '_rsd'
+
     f_pell = lambda sim: os.path.join(dir_dat, sim, 
             'pySpec.Plk.halo.mlim1e13.Lbox1050.Ngrid360%s.dat' % str_rsd) 
     f_pnkt = lambda sim: os.path.join(dir_dat, sim, 
@@ -456,10 +460,8 @@ def QPM_AEM(rsd=False):
             'pySpec.B123.halo.mlim1e13.Lbox1050.Ngrid360.Nmax40.Ncut3.step3.pyfftw%s.dat'
             % str_rsd) 
     
-    Lbox_qpm = 1050. 
-    Lbox_aem = 1050. 
-    kf_qpm = 2.*np.pi/Lbox_qpm
-    kf_aem = 2.*np.pi/Lbox_aem
+    Lbox = 1050. 
+    kf = 2.*np.pi/1050
     
     fig = plt.figure(figsize=(5,5))
     sub = fig.add_subplot(111)
@@ -483,67 +485,79 @@ def QPM_AEM(rsd=False):
     sub.set_xscale('log') 
     fig.savefig(os.path.join(dir_dat, 'qpm', 'p0k_qpm_aemulus%s.png' % str_rsd), bbox_inches='tight')
 
+
+    i_k, j_k, l_k, _, _, _, b123_aem, q123_aem, counts_aem, _ = \
+            np.loadtxt(f_b123('aemulus'), skiprows=1, unpack=True,
+                    usecols=range(10)) 
+    
+    i_k, j_k, l_k, _, _, _, b123_qpm, q123_qpm, counts_qpm, _ = \
+            np.loadtxt(f_b123('qpm'), skiprows=1, unpack=True,
+                    usecols=range(10)) 
+
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
-    i_k, j_k, l_k, p0k1, p0k2, p0k3, b123, q123, counts, b123_sn = np.loadtxt(f_b123('aemulus'),
-            skiprows=1, unpack=True, usecols=range(10)) 
-    klim = ((i_k*kf_aem <= 0.22) & (i_k*kf_aem >= 0.03) &
-            (j_k*kf_aem <= 0.22) & (j_k*kf_aem >= 0.03) & 
-            (l_k*kf_aem <= 0.22) & (l_k*kf_aem >= 0.03)) 
+    #klim = ((i_k*kf <= 0.22) & (i_k*kf >= 0.03) &
+    #        (j_k*kf <= 0.22) & (j_k*kf >= 0.03) & 
+    #        (l_k*kf <= 0.22) & (l_k*kf >= 0.03)) 
+    klim = ((i_k*kf <= 0.22) &
+            (j_k*kf <= 0.22) & 
+            (l_k*kf <= 0.22)) 
+    print('%i triangle configurations' % np.sum(klim))
     i_k, j_k, l_k = i_k[klim], j_k[klim], l_k[klim]
+    b123_aem = b123_aem[klim]
+    q123_aem = q123_aem[klim]
+    b123_qpm = b123_qpm[klim]
+    q123_qpm = q123_qpm[klim]
         
+    counts_aem = counts_aem[klim]
+    counts_qpm = counts_qpm[klim]
+
     ijl = UT.ijl_order(i_k, j_k, l_k, typ='GM') # order of triangles 
    
-    sub.scatter(range(np.sum(klim)), b123[klim][ijl], c='k', s=5, label='Aemulus') 
-    sub.plot(range(np.sum(klim)), b123[klim][ijl], c='k') 
+    sub.scatter(range(np.sum(klim)), b123_aem[ijl], c='k', s=5, label='Aemulus') 
+    sub.plot(range(np.sum(klim)), b123_aem[ijl], c='k') 
 
-    i_k, j_k, l_k, p0k1, p0k2, p0k3, b123, q123, counts, b123_sn = np.loadtxt(f_b123('qpm'),
-            skiprows=1, unpack=True, usecols=range(10)) 
-    klim = ((i_k*kf_qpm <= 0.22) & (i_k*kf_qpm >= 0.03) &
-            (j_k*kf_qpm <= 0.22) & (j_k*kf_qpm >= 0.03) & 
-            (l_k*kf_qpm <= 0.22) & (l_k*kf_qpm >= 0.03)) 
-    i_k, j_k, l_k, = i_k[klim], j_k[klim], l_k[klim]
-    
-    ijl = UT.ijl_order(i_k, j_k, l_k, typ='GM') # order of triangles 
-    sub.scatter(range(np.sum(klim)), b123[klim][ijl], c='C1', s=5, label='QPM') 
-    sub.plot(range(np.sum(klim)), b123[klim][ijl], c='C1') 
+    sub.scatter(range(np.sum(klim)), b123_qpm[ijl], c='C1', s=5, label='QPM') 
+    sub.plot(range(np.sum(klim)), b123_qpm[ijl], c='C1') 
     sub.legend(loc='upper right', markerscale=4, handletextpad=0., fontsize=20) 
     sub.set_ylabel('$B(k_1, k_2, k_3)$', fontsize=25) 
     sub.set_yscale('log') 
-    sub.set_ylim([1e8, 6e9]) 
+    sub.set_ylim([1e8, 1e10]) 
     sub.set_xlabel(r'$k_1 \le k_2 \le k_3$ triangle indices', fontsize=25) 
     sub.set_xlim([0, np.sum(klim)])
     fig.savefig(os.path.join(dir_dat, 'qpm', 'B123_qpm_aemulus%s.png' % str_rsd), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'qpm', 'B123_qpm_aemulus%s.pdf' %
+        str_rsd_pdf), bbox_inches='tight')
 
     fig = plt.figure(figsize=(10,5))
     sub = fig.add_subplot(111)
-    i_k, j_k, l_k, p0k1, p0k2, p0k3, b123, q123, counts, b123_sn = np.loadtxt(f_b123('aemulus'),
-            skiprows=1, unpack=True, usecols=range(10)) 
-    sub.scatter(range(len(q123)), q123, c='k', s=2, label='Aemulus') 
-    i_k, j_k, l_k, p0k1, p0k2, p0k3, b123, q123, counts, b123_sn = np.loadtxt(f_b123('qpm'),
-            skiprows=1, unpack=True, usecols=range(10)) 
-    sub.scatter(range(len(q123)), q123, c='C1', s=2, label='QPM') 
+    sub.scatter(range(np.sum(klim)), q123_aem[ijl], c='k', s=2, label='Aemulus') 
+    sub.plot(range(np.sum(klim)), q123_aem[ijl], c='k') 
+    sub.scatter(range(np.sum(klim)), q123_qpm[ijl], c='C1', s=2, label='QPM') 
+    sub.plot(range(np.sum(klim)), q123_qpm[ijl], c='C1') 
     sub.legend(loc='lower left', handletextpad=0., markerscale=4, fontsize=25) 
     sub.set_ylabel('$Q(k_1, k_2, k_3)$', fontsize=25) 
-    sub.set_xlabel('$k_1 > k_2 > k_3$ triangle indices', fontsize=25) 
-    sub.set_xlim([0, len(q123)]) 
+    sub.set_xlabel(r'$k_1 \le k_2 \le k_3$ triangle indices', fontsize=25) 
+    #sub.set_xlabel('$k_1 > k_2 > k_3$ triangle indices', fontsize=25) 
+    sub.set_xlim([0, np.sum(klim)]) 
     sub.set_ylim([0., 1.]) 
     fig.savefig(os.path.join(dir_dat, 'qpm', 'Q123_qpm_aemulus%s.png' % str_rsd), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'qpm', 'Q123_qpm_aemulus%s.pdf' %
+        str_rsd_pdf), bbox_inches='tight')
 
     # plot Q shape triangle plot 
-    nbin = 31 
+    nbin = 13 
     x_bins = np.linspace(0., 1., nbin+1)
     y_bins = np.linspace(0.5, 1., (nbin//2) + 1) 
+    print(y_bins) 
 
     fig = plt.figure(figsize=(12,4))
     sub = fig.add_subplot(121)
-    i_k, j_k, l_k, p0k1, p0k2, p0k3, b123, q123, counts, b123_sn = np.loadtxt(f_b123('qpm'),
-            skiprows=1, unpack=True, usecols=range(10)) 
     Bgrid = Plots._BorQgrid(
             l_k.astype(float)/i_k.astype(float), 
             j_k.astype(float)/i_k.astype(float), 
-            q123, 
-            counts, 
+            q123_qpm, 
+            counts_qpm, 
             x_bins, 
             y_bins)
     bplot = plt.pcolormesh(x_bins, y_bins, Bgrid.T, vmin=0, vmax=1, cmap='RdBu')
@@ -552,14 +566,11 @@ def QPM_AEM(rsd=False):
     sub.set_ylabel('$k_2/k_1$', fontsize=25)
 
     sub = fig.add_subplot(122)
-    i_k, j_k, l_k, p0k1, p0k2, p0k3, b123, q123, counts, b123_sn = \
-            np.loadtxt(f_b123('aemulus'), skiprows=1, unpack=True,
-                    usecols=range(10)) 
     Bgrid = Plots._BorQgrid(
             l_k.astype(float)/i_k.astype(float), 
             j_k.astype(float)/i_k.astype(float), 
-            q123, 
-            counts, 
+            q123_aem, 
+            counts_aem, 
             x_bins, 
             y_bins)
     bplot = plt.pcolormesh(x_bins, y_bins, Bgrid.T, vmin=0, vmax=1, cmap='RdBu')
@@ -575,6 +586,8 @@ def QPM_AEM(rsd=False):
 
     fig.subplots_adjust(wspace=0.15) 
     fig.savefig(os.path.join(dir_dat, 'qpm', 'Q123_shape_qpm_aemulus%s.png' % str_rsd), bbox_inches='tight')
+    fig.savefig(os.path.join(dir_dat, 'qpm', 'Q123_shape_qpm_aemulus%s.pdf' %
+        str_rsd_pdf), bbox_inches='tight')
     return None
 
 
@@ -623,10 +636,10 @@ def AEM_rzspace():
 
 
 if __name__=="__main__": 
-    #QPMspectra(rsd=True)
+    QPMspectra(rsd=True)
     #QPMspectra(rsd=False)
     #AEMspectra(rsd=True)
     #AEMspectra(rsd=False)
-    QPM_AEM(rsd=False)
-    QPM_AEM(rsd=True)
+    #QPM_AEM(rsd=False)
+    #QPM_AEM(rsd=True)
     #AEM_rzspace()
