@@ -45,11 +45,17 @@ def Bk_periodic(xyz, w=None, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, fft=
         b123 and pk1pk2pk3 are shot noise corrected. 'counts' are the number of modes. 
     '''
     N = xyz.shape[1] # number of positions 
-    nbar = float(N)/Lbox**3 
+    if w is None: 
+        w = np.ones(N) 
+
+    nbar = np.sum(w)/Lbox**3 
+
     kf = 2 * np.pi / Lbox 
+
     if not silent: 
         print('------------------') 
         print('%i positions in %i box' % (N, Lbox))  
+        print('sum w_i = %f' % np.sum(w))
         print('nbar = %f' % nbar)  
     assert Ngrid == 360, "currently only tested for 360; I'm being lazy..."
 

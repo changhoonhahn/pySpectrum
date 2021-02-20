@@ -6,20 +6,34 @@ from numpy.distutils.core import Extension
 __version__ = '0.0'
 
 try: 
-    if os.environ['NERSC_HOST'] == 'edison': 
-        ext = Extension(name='estimator', 
-                sources=['pyspectrum/estimator.f'], 
-                language='f77', 
-                library_dirs = ["/opt/cray/pe/fftw/3.3.8.1/x86_64/lib"],
-                libraries = ['fftw3f'], 
-                include_dirs=[np.get_include(), "/opt/cray/pe/fftw/3.3.8.1/x86_64/include"])
-    elif os.environ['NERSC_HOST'] == 'cori': 
-        ext = Extension(name='estimator', 
-                sources=['pyspectrum/estimator.f'], 
-                language='f77', 
-                library_dirs = ["/opt/cray/pe/fftw/default/x86_64/lib"],
-                libraries = ['fftw3f'], 
-                include_dirs=[np.get_include(), "/opt/cray/pe/fftw/default/x86_64/include"])
+    if 'NERSC_HOST' in os.environ.keys(): 
+        if os.environ['NERSC_HOST'] == 'edison': 
+            ext = Extension(name='estimator', 
+                    sources=['pyspectrum/estimator.f'], 
+                    language='f77', 
+                    library_dirs = ["/opt/cray/pe/fftw/3.3.8.1/x86_64/lib"],
+                    libraries = ['fftw3f'], 
+                    include_dirs=[np.get_include(), "/opt/cray/pe/fftw/3.3.8.1/x86_64/include"])
+        elif os.environ['NERSC_HOST'] == 'cori': 
+            ext = Extension(name='estimator', 
+                    sources=['pyspectrum/estimator.f'], 
+                    language='f77', 
+                    library_dirs = ["/opt/cray/pe/fftw/default/x86_64/lib"],
+                    libraries = ['fftw3f'], 
+                    include_dirs=[np.get_include(), "/opt/cray/pe/fftw/default/x86_64/include"])
+        else: 
+            raise KeyError
+    elif 'machine' in os.environ.keys(): 
+        if os.environ['machine'] == 'tiger': 
+            print('install on princeton Tiger') 
+            ext = Extension(name='estimator', 
+                    sources=['pyspectrum/estimator.f'], 
+                    language='f77', 
+                    library_dirs = ["/usr/local/fftw/intel-16.0/3.3.4/lib64"], 
+                    libraries = ['fftw3f'], 
+                    include_dirs=[np.get_include(), "/usr/local/fftw/intel-16.0/3.3.4/include"])
+    else: 
+        raise KeyError
 except KeyError: 
     ext = Extension(name='estimator', 
             sources=['pyspectrum/estimator.f'], 
