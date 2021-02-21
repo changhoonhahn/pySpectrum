@@ -602,16 +602,18 @@ cc*******************************************************************
       return 
       end 
 cc*******************************************************************
-      subroutine fcomb(dcl,N,Ngrid)
+      subroutine fcomb_periodic(dcl,N,Ngrid)
 cc*******************************************************************
       parameter(tpi=6.283185307d0)
       real*8 tpiL,piL
       complex*16 recx,recy,recz,xrec,yrec,zrec
       complex c1,ci,c000,c001,c010,c011,cma,cmb,cmc,cmd
-      integer, intent(in) :: N,Ngrid
+      real, intent(in) :: N
+      integer, intent(in) :: Ngrid
       complex, intent(inout) :: dcl(Ngrid,Ngrid,Ngrid)
 
       cf=1./(6.**3*4.*N)
+c      cf=1./(6.**3*4.) !*float(N)) not needed for FKP
 
       Lnyq=Ngrid/2+1
       tpiL=tpi/float(Ngrid)

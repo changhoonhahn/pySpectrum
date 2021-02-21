@@ -167,7 +167,10 @@ def Pk_periodic(xyz, w=None, Lbox=2600, Ngrid=360, fft='pyfftw', silent=True):
         output dictionary 
     '''
     N = xyz.shape[1] # number of positions 
-    nbar = float(N)/Lbox**3 
+    if w is None: 
+        w = np.ones(N) 
+
+    nbar = np.sum(w)/Lbox**3 
     kf = 2 * np.pi / Lbox 
     if not silent: 
         print('------------------') 
@@ -434,19 +437,23 @@ def FFTperiodic(xyz, w=None, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True):
     xyzs[0,:] = np.clip(xyz[0,:], 0., Lbox*(1.-1e-6))
     xyzs[1,:] = np.clip(xyz[1,:], 0., Lbox*(1.-1e-6))
     xyzs[2,:] = np.clip(xyz[2,:], 0., Lbox*(1.-1e-6))
-    if not silent: print('%i positions' % N) 
+    if not silent: print('%i positions, Ntot=%.f' % (N, np.sum(w)))
+
+    ws = np.zeros(N, dtype=np.float32, order='F')
+    ws = w
     
     # assign galaxies to grid (checked with fortran) 
     _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F') # even indices (real) odd (complex)
     
     # the order is reversed. Don't touch it!!!
-    fEstimate.assign_quad(xyzs, w, _delta, kf_ks, 0, 0, 0, 0, N, Ngrid) 
+    fEstimate.assign_quad(xyzs, ws, _delta, kf_ks, 0, 0, 0, 0, N, Ngrid) 
+    print(_delta[:5,:5,:5])
 
     ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid, silent=silent) 
 
     if not silent: print('position grid FFTed') 
     # combine fields 
-    fEstimate.fcomb(ifft_delta,N,Ngrid) 
+    fEstimate.fcomb_periodic(ifft_delta,np.sum(w),Ngrid) 
     if not silent: print('fcomb complete') 
     return ifft_delta[:Ngrid//2+1,:,:]
 

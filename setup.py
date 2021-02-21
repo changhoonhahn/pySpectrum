@@ -32,6 +32,14 @@ try:
                     library_dirs = ["/usr/local/fftw/intel-16.0/3.3.4/lib64"], 
                     libraries = ['fftw3f'], 
                     include_dirs=[np.get_include(), "/usr/local/fftw/intel-16.0/3.3.4/include"])
+        elif os.environ['machine'] == 'mbp': 
+            ext = Extension(name='estimator', 
+                    sources=['pyspectrum/estimator.f'], 
+                    language='f77', 
+                    library_dirs = ["/usr/local/lib"],
+                    libraries = ['fftw3f'], 
+                    include_dirs=[np.get_include(), '/usr/local/include'],
+                    extra_f77_compile_args=['-fcheck=all', '-fallow-argument-mismatch'])
     else: 
         raise KeyError
 except KeyError: 
