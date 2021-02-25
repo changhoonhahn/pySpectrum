@@ -12,7 +12,7 @@ from . import util as UT
 
 def B0_survey(radecz, nbar, w=None, radecz_r=None, nbar_r=None, w_r=None,
         deltak_r=None, Iij_r=None, Lbox=2600, Ngrid=360, step=3, Ncut=3,
-        Nmax=40, fft='pyfftw', nthreads=1, silent=True): 
+        Nmax=40, cosmo=None, fft='pyfftw', nthreads=1, silent=True): 
     ''' calculate the bispectrum monopole for survey geometry using Scoccimarro
     (2015) estimator. 
 
@@ -89,6 +89,10 @@ def B0_survey(radecz, nbar, w=None, radecz_r=None, nbar_r=None, w_r=None,
     if deltak_r is not None and Iij_r is None: 
         raise ValueError('specify normalizing integrals I12, I13, I22, I23, I33') 
 
+    if cosmo is None: 
+        # default cosmology 
+        cosmo = FlatLambdaCDM(H0=67.6, Om0=0.31)  
+
     assert Ngrid == 360, "currently only tested for 360; I'm being lazy..."
     
     kf = 2 * np.pi / Lbox 
@@ -110,7 +114,7 @@ def B0_survey(radecz, nbar, w=None, radecz_r=None, nbar_r=None, w_r=None,
         if w_r is None: w_r = np.ones(Nr) 
 
         delta_r, I11r, I12r, I13r, I22r, I23r, I33r = \
-                FFT_survey_mono(radecz_r, nb_r, w=w_r, Lbox=Lbox, Ngrid=Ngrid, 
+                FFT_survey_mono(radecz_r, nbar_r, w=w_r, Lbox=Lbox, Ngrid=Ngrid, 
                         cosmo=cosmo, fft=fft, silent=silent)
         deltak_r = reflect_delta(delta_r, Ngrid=Ngrid) 
     else: 
@@ -122,17 +126,17 @@ def B0_survey(radecz, nbar, w=None, radecz_r=None, nbar_r=None, w_r=None,
     
     # scale random normalizing integrals by alpha (expected rather than true
     # normalizing integrals --- may be worth revisiting) 
-    I12 = alpha * I12_r
-    I13 = alpha * I13_r
-    I22 = alpha * I22_r
-    I23 = alpha * I23_r
-    I33 = alpha * I33_r
+    I12 = alpha * I12r
+    I13 = alpha * I13r
+    I22 = alpha * I22r
+    I23 = alpha * I23r
+    I33 = alpha * I33r
 
     # calculate overdensity field 
     deltak = deltak_d - alpha * deltak_r
 
     if not silent: print('--- calculating the bispectrum ---') 
-    bispec = _B0_survey(deltak, I12, I13, I22, I23, I33, Nmax=Nmax, Ncut=Ncut,
+    bispec = _B0_survey(deltak, alpha, I12, I13, I22, I23, I33, Nmax=Nmax, Ncut=Ncut,
             step=step, fft=fft, nthreads=nthreads, silent=True)
 
     # store some meta data for completeness  
@@ -141,7 +145,7 @@ def B0_survey(radecz, nbar, w=None, radecz_r=None, nbar_r=None, w_r=None,
     return bispec
 
 
-def _B0_survey(delta, I12, I13, I22, I23, I33, Nmax=40, Ncut=3, step=3, fft='pyfftw', nthreads=1, silent=True): 
+def _B0_survey(delta, alpha, I12, I13, I22, I23, I33, Nmax=40, Ncut=3, step=3, fft='pyfftw', nthreads=1, silent=True): 
     ''' Calculate the bispectrum for survey geometry given overdensity (data -
     random) delta(k).
 
@@ -150,6 +154,9 @@ def _B0_survey(delta, I12, I13, I22, I23, I33, Nmax=40, Ncut=3, step=3, fft='pyf
     delta : 3d array 
         overdensity delta(k): delta(k) of objects (galaxies, halso, DM
         particles) minus delta(k) of randoms 
+
+    alpha : float
+        sum w_g / sum w_r 
 
     I12 : float 
         normalization integral: 
@@ -768,7 +775,7 @@ def FFT_survey_mono(radecz, nb, w=None, Lbox=2600., Ngrid=360, cosmo=None, fft='
     -----
     '''
     kf_ks = np.float32(float(Ngrid) / Lbox)
-    N = np.int32(xyz.shape[1]) # number of objects 
+    N = np.int32(radecz.shape[1]) # number of objects 
     
     if cosmo is None: 
         # default cosmology 
@@ -806,7 +813,7 @@ def FFT_survey_mono(radecz, nb, w=None, Lbox=2600., Ngrid=360, cosmo=None, fft='
     _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F')
     fEstimate.assign_quad(xyzs, w, _delta, kf_ks, 0, 0, 0, 0, N, Ngrid) # assign to grid
     ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid, silent=silent) # run FFT
-    fEstimate.fcomb_survey(ifft_delta,N,Ngrid) # combine 
+    fEstimate.fcomb_survey(ifft_delta,Ngrid) # combine 
     delta0 = ifft_delta[:Ngrid//2+1,:,:]
 
     if not silent: print('delta_0(k) complete') 
