@@ -42,7 +42,7 @@ def radecz_to_cartesian(radecz, cosmo=None):
     dec *= np.pi / 180. 
     
     # calculate radial comoving distance in Mpc/h
-    rad = cosmo.comoving_distance(z) 
+    rad = cosmo.comoving_distance(z) * cosmo.h 
 
     xyz = np.array([
         rad * np.cos(dec) * np.cos(ra),

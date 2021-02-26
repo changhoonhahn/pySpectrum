@@ -281,10 +281,10 @@ c      include '~/project/pySpectrum/dat/fftw3.f'
       return 
       end 
 cc*******************************************************************
-      subroutine assign_quad(r,w,dtl,Np,Ngrid,kf_ks,ia,ib,ic,id)
+      subroutine assign_quad(r,w,dtl,Np,Ngrid,kf_ks,offset,ia,ib,ic,id)
 cc*******************************************************************
       integer, intent(in) :: Np,Ngrid,ia,ib,ic,id
-      real, intent(in) :: kf_ks 
+      real, intent(in) :: kf_ks,offset 
       real, dimension(3,Np), intent(in) :: r
       real, dimension(Np), intent(in) :: w
       real, dimension(2*Ngrid,Ngrid,Ngrid), intent(inout) :: dtl
@@ -299,9 +299,9 @@ cc*******************************************************************
             we=w(i)*r(ia,i)*r(ib,i)*r(ic,i)*r(id,i)/rnorm**2
         endif
 
-       rx=kf_ks*r(1,i)+1.
-       ry=kf_ks*r(2,i)+1.
-       rz=kf_ks*r(3,i)+1.
+       rx=kf_ks*r(1,i)+1.+offset
+       ry=kf_ks*r(2,i)+1.+offset
+       rz=kf_ks*r(3,i)+1.+offset
        tx=rx+0.5
        ty=ry+0.5
        tz=rz+0.5

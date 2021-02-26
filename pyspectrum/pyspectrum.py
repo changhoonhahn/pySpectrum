@@ -11,8 +11,8 @@ from . import util as UT
 
 
 def B0_survey(radecz, nbar, w=None, radecz_r=None, nbar_r=None, w_r=None,
-        deltak_r=None, Iij_r=None, Lbox=2600, Ngrid=360, step=3, Ncut=3,
-        Nmax=40, cosmo=None, fft='pyfftw', nthreads=1, silent=True): 
+        P0_fkp=1e6, Lbox=2600, Ngrid=360, step=3, Ncut=3, Nmax=40, cosmo=None,
+        fft='pyfftw', nthreads=1, silent=True): 
     ''' calculate the bispectrum monopole for survey geometry using Scoccimarro
     (2015) estimator. 
 
@@ -40,13 +40,8 @@ def B0_survey(radecz, nbar, w=None, radecz_r=None, nbar_r=None, w_r=None,
     w_r : 1d array, optional
         Nr dim array that specifies the weights for the randoms 
     
-    deltak_r : 3d array, optional
-        Instead of providing `radecz_r` and `nbar_r`, if `deltak_r` you can
-        provide the delta(k) of randoms directly, which would speed things up.  
-
-    Iij_r : 1d array_like, optional
-        normalizing integrals [I12, I13, I22, I23, I33] for the random catalog.
-        See Scoccimarro (2015) for details. 
+    P0_fkp : float, optional
+        P0 value for FKP weights (default: 1e6) 
 
     Lbox : float, optional 
         box size (default: 2600.)
@@ -82,12 +77,8 @@ def B0_survey(radecz, nbar, w=None, radecz_r=None, nbar_r=None, w_r=None,
         the bispectrum also shot noise corrected and q123 is the reduced bispectrum (where both
         b123 and pk1pk2pk3 are shot noise corrected. 'counts' are the number of modes. 
     '''
-    if radecz_r is None and deltak_r is None: 
-        raise ValueError('provide random catalog positions and nbar or delta(k) for randoms') 
     if radecz_r is not None and nbar_r is None: 
         raise ValueError('specify nbar for random catalog') 
-    if deltak_r is not None and Iij_r is None: 
-        raise ValueError('specify normalizing integrals I12, I13, I22, I23, I33') 
 
     if cosmo is None: 
         # default cosmology 
@@ -102,27 +93,23 @@ def B0_survey(radecz, nbar, w=None, radecz_r=None, nbar_r=None, w_r=None,
     if not silent: print('--- %i positions in %i box ---' % (N, Lbox))
 
     if not silent: print('--- calculating the FFT for data ---') 
-    delta_d, I11d, I12d, I13d, I22d, I23d, I33d = \
-            FFT_survey_mono(radecz, nbar, w, Lbox=Lbox, Ngrid=Ngrid,
+    delta_d, Ngtot, I12d, I13d, I22d, I23d, I33d = \
+            FFT_survey_mono(radecz, nbar, w=w, P0_fkp=P0_fkp, Lbox=Lbox, Ngrid=Ngrid,
                     cosmo=cosmo, fft=fft, silent=silent)
     deltak_d = reflect_delta(delta_d, Ngrid=Ngrid) 
 
-    if deltak_r is None: 
-        if not silent: print('--- calculating the FFT for random ---') 
+    if not silent: print('--- calculating the FFT for random ---') 
+    Nr = radecz_r.shape[1] 
+    if w_r is None: w_r = np.ones(Nr) 
 
-        Nr = radecz_r.shape[1] 
-        if w_r is None: w_r = np.ones(Nr) 
-
-        delta_r, I11r, I12r, I13r, I22r, I23r, I33r = \
-                FFT_survey_mono(radecz_r, nbar_r, w=w_r, Lbox=Lbox, Ngrid=Ngrid, 
-                        cosmo=cosmo, fft=fft, silent=silent)
-        deltak_r = reflect_delta(delta_r, Ngrid=Ngrid) 
-    else: 
-        # get normalizing integrals
-        I11r, I12r, I13r, I22r, I23r, I33r = Iij_r 
+    delta_r, Nrtot, I12r, I13r, I22r, I23r, I33r = \
+            FFT_survey_mono(radecz_r, nbar_r, w=w_r, P0_fkp=P0_fkp, Lbox=Lbox, Ngrid=Ngrid, 
+                    cosmo=cosmo, fft=fft, silent=silent)
+    deltak_r = reflect_delta(delta_r, Ngrid=Ngrid) 
 
     # calculate alpha
-    alpha = I11d / I11r
+    alpha = Ngtot / Nrtot 
+    if not silent: print('alpha=%e' % alpha) 
     
     # scale random normalizing integrals by alpha (expected rather than true
     # normalizing integrals --- may be worth revisiting) 
@@ -230,9 +217,12 @@ def _B0_survey(delta, alpha, I12, I13, I22, I23, I33, Nmax=40, Ncut=3, step=3, f
             deltaKshellX[j] = np.fft.fftn(tempK)
         
         p0k[j-1] = np.einsum('i,i', deltaKshellX[j].ravel(), deltaKshellX[j].ravel())/Ngrid**3/Nk[j] # 10 ms
-
+    
+    print(p0k) 
     # shot noise correction 
+    p0k /= I22
     p0k -= (1. + alpha) * I12 / I22 
+    print(p0k) 
 
     # counts for normalizing  
     counts = _counts_Bk123(Ngrid=Ngrid, Nmax=Nmax, Ncut=Ncut, step=step, fft=fft, silent=silent) 
@@ -258,9 +248,11 @@ def _B0_survey(delta, alpha, I12, I13, I22, I23, I33, Nmax=40, Ncut=3, step=3, f
                             deltaKshellX[i].ravel(), 
                             deltaKshellX[j].ravel(), 
                             deltaKshellX[l].ravel())/counts[i-1,j-1,l-1]
-                    # shot noise corrected
+                    # shot noise correction 
                     bisp_ijl -= (p0k[i-1] + p0k[j-1] + p0k[l-1]) * I23 + \
-                            (1. + alpha**2) * I13/I33
+                            (1. - alpha**2) * I13
+                    # and normalization 
+                    bisp_ijl /= I33
 
                     p0k_i.append(p0k[i-1])
                     p0k_j.append(p0k[j-1])
@@ -738,7 +730,7 @@ def Pk_periodic(xyz, w=None, Lbox=2600, Ngrid=360, fft='pyfftw', silent=True):
     return pspec 
 
 
-def FFT_survey_mono(radecz, nb, w=None, Lbox=2600., Ngrid=360, cosmo=None, fft='pyfftw', silent=True):
+def FFT_survey_mono(radecz, nb, w=None, P0_fkp=1e6, Lbox=2600., Ngrid=360, cosmo=None, fft='pyfftw', silent=True):
     ''' Put galaxies from a survey onto a grid and FFT it. This function wraps
     some of the functions in estimator.f 
 
@@ -777,48 +769,61 @@ def FFT_survey_mono(radecz, nb, w=None, Lbox=2600., Ngrid=360, cosmo=None, fft='
     kf_ks = np.float32(float(Ngrid) / Lbox)
     N = np.int32(radecz.shape[1]) # number of objects 
     
+    # default cosmology 
     if cosmo is None: 
-        # default cosmology 
         cosmo = FlatLambdaCDM(H0=67.6, Om0=0.31)  
 
-    if w is None:
-        # weights 
-        w = np.ones(N)
+    # weights 
+    if w is None: w = np.ones(N)
 
-    # convert ra, dec, z to cartesian coordinates 
+    # convert ra, dec, z to cartesian coordinates in Mpc/h
     xyz = UT.radecz_to_cartesian(radecz, cosmo=cosmo) 
     xyz_max = np.max(xyz, axis=1) 
-    assert np.sum(xyz_max >= Lbox) == 0
-
+    xyz_min = np.min(xyz, axis=1) 
     if not silent: 
         print(['%.1f < %s < %.1f\n' % (mi, _axis, ma) for _axis, mi, ma in
-            zip(['x', 'y', 'z'], np.min(xyz, axis=1), np.max(xyz, axis=1))])
+            zip(['x', 'y', 'z'], xyz_min, xyz_max)])
+
+    assert np.sum(xyz_max >= 0.5 * Lbox) + np.sum(np.abs(xyz_min) >= 0.5 * Lbox)  == 0, 'box not big enough!'
+
 
     # position of galaxies (checked with fortran) 
     xyzs = np.zeros([3, N], dtype=np.float32, order='F') 
-    xyzs[0,:] = np.clip(xyz[0,:], 0., Lbox*(1.-1e-6))
-    xyzs[1,:] = np.clip(xyz[1,:], 0., Lbox*(1.-1e-6))
-    xyzs[2,:] = np.clip(xyz[2,:], 0., Lbox*(1.-1e-6))
+    xyzs[0,:] = xyz[0,:]
+    xyzs[1,:] = xyz[1,:]
+    xyzs[2,:] = xyz[2,:]
     if not silent: print('%i positions' % N) 
 
-    # calculate I10,I12d,I22,I13d,I23,I33
-    I11 = np.sum(w) 
+    Ntot = np.sum(w) # total weight without FKP 
+    
+    # fkp weights 
+    w_fkp = 1./(1.+nb * P0_fkp) 
+    w *= w_fkp 
+
+    # calculate I12, I22, I13, I23, I33
     I12 = np.sum(w**2) 
     I13 = np.sum(w**3) 
     I22 = np.sum(nb * w**2)
     I23 = np.sum(nb * w**3) 
     I33 = np.sum(nb**2 * w**3) 
+    if not silent: 
+        print('Ntot=%.2f' % Ntot) 
+        print('I12=%.2e' % I12)
+        print('I13=%.2e' % I13)
+        print('I22=%.2e' % I22)
+        print('I23=%.2e' % I23)
+        print('I33=%.2e' % I33)
 
     # calculate delta0(k) 
     _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F')
-    fEstimate.assign_quad(xyzs, w, _delta, kf_ks, 0, 0, 0, 0, N, Ngrid) # assign to grid
+    fEstimate.assign_quad(xyzs, w, _delta, kf_ks, 0.5*Ngrid, 0, 0, 0, 0, N, Ngrid) # assign to grid
     ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid, silent=silent) # run FFT
     fEstimate.fcomb_survey(ifft_delta,Ngrid) # combine 
     delta0 = ifft_delta[:Ngrid//2+1,:,:]
 
     if not silent: print('delta_0(k) complete') 
     
-    return delta0, I11, I12, I13, I22, I23, I33 
+    return delta0, Ntot, I12, I13, I22, I23, I33 
 
 
 def FFT_survey(radecz, w=None, Lbox=2600., Ngrid=360, cosmo=None, fft='pyfftw', silent=True): 
@@ -894,7 +899,7 @@ def FFT_survey(radecz, w=None, Lbox=2600., Ngrid=360, cosmo=None, fft='pyfftw', 
     # calculat reweighted fields 
     w = w**2
     _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F')
-    fEstimate.assign_quad(xyzs, w, _delta, kf_ks, 0, 0, 0, 0, N, Ngrid) # assign to grid
+    fEstimate.assign_quad(xyzs, w, _delta, kf_ks, 0.5*Ngrid, 0, 0, 0, 0, N, Ngrid) # assign to grid
     ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid, silent=silent) # run FFT
     fEstimate.fcomb(ifft_delta, N, Ngrid) # combine 
     delta_w = ifft_delta[:Ngrid//2+1,:,:]
@@ -943,7 +948,7 @@ def FFT_periodic(xyz, w=None, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True):
     _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F') # even indices (real) odd (complex)
     
     # the order is reversed. Don't touch it!!!
-    fEstimate.assign_quad(xyzs, ws, _delta, kf_ks, 0, 0, 0, 0, N, Ngrid) 
+    fEstimate.assign_quad(xyzs, ws, _delta, kf_ks, 0, 0, 0, 0, 0, N, Ngrid) 
     print(_delta[:5,:5,:5])
 
     ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid, silent=silent) 
