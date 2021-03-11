@@ -218,11 +218,9 @@ def _B0_survey(delta, alpha, I12, I13, I22, I23, I33, Nmax=40, Ncut=3, step=3, f
         
         p0k[j-1] = np.einsum('i,i', deltaKshellX[j].ravel(), deltaKshellX[j].ravel())/Ngrid**3/Nk[j] # 10 ms
     
-    print(p0k) 
     # shot noise correction 
     p0k /= I22
     p0k -= (1. + alpha) * I12 / I22 
-    print(p0k) 
 
     # counts for normalizing  
     counts = _counts_Bk123(Ngrid=Ngrid, Nmax=Nmax, Ncut=Ncut, step=step, fft=fft, silent=silent) 
@@ -813,6 +811,8 @@ def FFT_survey_mono(radecz, nb, w=None, P0_fkp=1e6, Lbox=2600., Ngrid=360, cosmo
         print('I22=%.2e' % I22)
         print('I23=%.2e' % I23)
         print('I33=%.2e' % I33)
+    
+    assert np.all([(I12 >= 0), (I13 >= 0), (I22 >= 0), (I23 >= 0), (I33 >=0)]), print(nb, w)
 
     # calculate delta0(k) 
     _delta = np.zeros([2*Ngrid, Ngrid, Ngrid], dtype=np.float32, order='F')
@@ -949,7 +949,6 @@ def FFT_periodic(xyz, w=None, Lbox=2600., Ngrid=360, fft='pyfftw', silent=True):
     
     # the order is reversed. Don't touch it!!!
     fEstimate.assign_quad(xyzs, ws, _delta, kf_ks, 0, 0, 0, 0, 0, N, Ngrid) 
-    print(_delta[:5,:5,:5])
 
     ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid, silent=silent) 
 
