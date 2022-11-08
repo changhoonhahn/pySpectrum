@@ -281,10 +281,10 @@ c      include '~/project/pySpectrum/dat/fftw3.f'
       return 
       end 
 cc*******************************************************************
-      subroutine assign_quad(r,w,dtl,Np,Ngrid,kf_ks,ia,ib,ic,id)
+      subroutine assign_quad(r,w,dtl,Np,Ngrid,kf_ks,offset,ia,ib,ic,id)
 cc*******************************************************************
       integer, intent(in) :: Np,Ngrid,ia,ib,ic,id
-      real, intent(in) :: kf_ks 
+      real, intent(in) :: kf_ks,offset 
       real, dimension(3,Np), intent(in) :: r
       real, dimension(Np), intent(in) :: w
       real, dimension(2*Ngrid,Ngrid,Ngrid), intent(inout) :: dtl
@@ -299,9 +299,9 @@ cc*******************************************************************
             we=w(i)*r(ia,i)*r(ib,i)*r(ic,i)*r(id,i)/rnorm**2
         endif
 
-       rx=kf_ks*r(1,i)+1.
-       ry=kf_ks*r(2,i)+1.
-       rz=kf_ks*r(3,i)+1.
+       rx=kf_ks*r(1,i)+1.+offset
+       ry=kf_ks*r(2,i)+1.+offset
+       rz=kf_ks*r(3,i)+1.+offset
        tx=rx+0.5
        ty=ry+0.5
        tz=rz+0.5
@@ -614,6 +614,76 @@ cc*******************************************************************
 
       cf=1./(6.**3*4.*N)
 c      cf=1./(6.**3*4.) !*float(N)) not needed for FKP
+
+      Lnyq=Ngrid/2+1
+      tpiL=tpi/float(Ngrid)
+      piL=-tpiL/2.
+      recx=cmplx(dcos(piL),dsin(piL))
+      recy=cmplx(dcos(piL),dsin(piL))
+      recz=cmplx(dcos(piL),dsin(piL))
+      
+      c1=cmplx(1.,0.)
+      ci=cmplx(0.,1.)
+      zrec=c1
+      do 301 iz=1,Lnyq
+       icz=mod(Ngrid-iz+1,Ngrid)+1
+       rkz=tpiL*(iz-1)
+       Wkz=1.
+       if(rkz.ne.0.)Wkz=(sin(rkz/2.)/(rkz/2.))**4
+       yrec=c1
+       do 302 iy=1,Lnyq
+        icy=mod(Ngrid-iy+1,Ngrid)+1
+        rky=tpiL*(iy-1)
+        Wky=1.
+        if(rky.ne.0.)Wky=(sin(rky/2.)/(rky/2.))**4
+        xrec=c1
+        do 303 ix=1,Lnyq
+         icx=mod(Ngrid-ix+1,Ngrid)+1
+         rkx=tpiL*(ix-1)
+         Wkx=1.
+         if(rkx.ne.0.)Wkx=(sin(rkx/2.)/(rkx/2.))**4
+         cfac=cf/(Wkx*Wky*Wkz)
+c
+         cma=ci*xrec*yrec*zrec
+         cmb=ci*xrec*yrec*conjg(zrec)
+         cmc=ci*xrec*conjg(yrec)*zrec
+         cmd=ci*xrec*conjg(yrec*zrec)
+c
+         c000=dcl(ix,iy ,iz )*(c1-cma)+conjg(dcl(icx,icy,icz))*(c1+cma)
+         c001=dcl(ix,iy ,icz)*(c1-cmb)+conjg(dcl(icx,icy,iz ))*(c1+cmb)
+         c010=dcl(ix,icy,iz )*(c1-cmc)+conjg(dcl(icx,iy ,icz))*(c1+cmc)
+         c011=dcl(ix,icy,icz)*(c1-cmd)+conjg(dcl(icx,iy ,iz ))*(c1+cmd)
+c
+c
+         dcl(ix,iy ,iz )=c000*cfac
+         dcl(ix,iy ,icz)=c001*cfac
+         dcl(ix,icy,iz )=c010*cfac
+         dcl(ix,icy,icz)=c011*cfac
+         dcl(icx,iy ,iz )=conjg(dcl(ix,icy,icz))
+         dcl(icx,iy ,icz)=conjg(dcl(ix,icy,iz ))
+         dcl(icx,icy,iz )=conjg(dcl(ix,iy ,icz))
+         dcl(icx,icy,icz)=conjg(dcl(ix,iy ,iz ))
+c
+         xrec=xrec*recx
+303     continue
+        yrec=yrec*recy
+302    continue
+       zrec=zrec*recz
+301   continue
+c
+      return
+      end
+cc*******************************************************************
+      subroutine fcomb_survey(dcl,Ngrid)
+cc*******************************************************************
+      parameter(tpi=6.283185307d0)
+      real*8 tpiL,piL
+      complex*16 recx,recy,recz,xrec,yrec,zrec
+      complex c1,ci,c000,c001,c010,c011,cma,cmb,cmc,cmd
+      integer, intent(in) :: Ngrid
+      complex, intent(inout) :: dcl(Ngrid,Ngrid,Ngrid)
+
+      cf=1./(6.**3*4.) !*float(N)) not needed for FKP estimator 
 
       Lnyq=Ngrid/2+1
       tpiL=tpi/float(Ngrid)
