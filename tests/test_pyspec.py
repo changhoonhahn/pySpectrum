@@ -5,6 +5,7 @@ import h5py
 import pytest 
 from itertools import product 
 from pyspectrum import dat_dir
+from pyspectrum import util 
 from pyspectrum import pyspectrum as pySpec
 
 
@@ -19,7 +20,7 @@ def test_pySpec(pt, space):
     Ngrid   = 360           # fft grid size
 
     if space == 'rsd': 
-        xyz_s = pySpec.applyRSD(xyz.T, vxyz.T, 0.5, h=0.7, omega0_m=0.3, LOS='z', Lbox=Lbox) 
+        xyz_s = util.applyRSD(xyz.T, vxyz.T, 0.5, h=0.7, omega0_m=0.3, LOS='z', Lbox=Lbox) 
 
     if pt == 2:  # 2pt (power spectrum)
         if space == 'real':
