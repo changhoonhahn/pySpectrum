@@ -55,6 +55,8 @@ def applyRSD(xyz, vxyz, redshift, h=0.7, omega0_m=0.3, LOS=None, Lbox=None):
     ''' Calculate redshift-space positions using the real-space position,
     velocities, and LOS direction for periodic box.
     '''
+    from astropy.cosmology import FlatLambdaCDM
+
     assert xyz.shape[0] == 3 # xyz and vxyz should be 3 x Ngal arrays
     assert vxyz.shape[0] == 3 
     if LOS is None: raise ValueError("specify line of sight") 
