@@ -263,9 +263,9 @@ c******************************************************************
       return 
       end
 cc*******************************************************************
-      subroutine ffting(dtl,N,Ngrid)
+      subroutine ffting(dtl,Ngrid)
 cc*******************************************************************
-      integer, intent(in) :: N,Ngrid
+      integer, intent(in) :: Ngrid
       complex, intent(inout) :: dtl(Ngrid,Ngrid,Ngrid)
       integer*8 planf
 c      include '/usr/local/include/fftw3.f'

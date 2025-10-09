@@ -710,7 +710,7 @@ def Pk_periodic(xyz, w=None, Lbox=2600, Ngrid=360, fft='pyfftw', silent=True):
         Nk = np.sum(inkbin) 
         if Nk > 0: 
             k[i-1] = np.sum(rk[inkbin])/float(Nk)
-            p0k[i-1] = np.sum(np.absolute(delta[inkbin])**2)/float(Nk)/kf**3
+            p0k[i-1] = np.sum(np.absolute(delta_fft[inkbin])**2)/float(Nk)/kf**3
             counts[i-1] = float(Nk) 
 
     p0k *= (2.*np.pi)**3 
@@ -1075,7 +1075,7 @@ def _FFT(_delta, fft='pyfftw', Ngrid=360, silent=True):
         ifft_delta[:,:,:] = fftw_ob(normalise_idft=False)
     elif fft == 'fortran': 
         ifft_delta = np.zeros((Ngrid, Ngrid, Ngrid), dtype=np.complex64, order='F') 
-        fEstimate.ffting(delta, N, Ngrid) 
+        fEstimate.ffting(delta, Ngrid) 
         ifft_delta[:,:,:] = delta[:,:,:]
     return ifft_delta
 
@@ -1099,7 +1099,7 @@ def _FiveDelta2g_1(xyzs, fft='pyfftw', Ngrid=360):
 
         ifft_delta = _FFT(_delta, fft=fft, Ngrid=Ngrid) # run FFT
 
-        fEstimate.fcomb(ifft_delta, N, Ngrid) # combine 
+        fEstimate.fcomb(ifft_delta, Ngrid) # combine 
 
         ifft_Qii.append(ifft_delta[:Ngrid//2+1,:,:]) 
 
