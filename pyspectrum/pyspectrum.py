@@ -4,8 +4,8 @@ import pyfftw
 import numpy as np 
 from scipy.io import FortranFile
 from astropy.cosmology import FlatLambdaCDM
-# -- local -- 
-import estimator as fEstimate
+# -- local --
+from . import estimator as fEstimate
 from . import dat_dir 
 from . import util as UT 
 

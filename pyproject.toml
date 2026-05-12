@@ -1,0 +1,23 @@
+[build-system]
+requires = ["meson-python", "numpy"]
+build-backend = "mesonpy"
+
+[project]
+name = "pySpectrum"
+version = "0.1"
+description = "Python package for calculating galaxy/halo/dark matter power spectrum and bispectrum"
+readme = "README.md"
+license = "GPL-2.0-or-later"
+authors = [{name = "ChangHoon Hahn", email = "changhoon.hahn@princeton.edu"}]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "scipy",
+    "astropy",
+    "h5py",
+    "pyfftw",
+    "matplotlib",
+]
+
+[project.urls]
+Homepage = "https://github.com/changhoonhahn/pySpectrum"
