@@ -5,7 +5,9 @@ project('pyspectrum', 'c', 'fortran',
 
 py = import('python').find_installation(pure: false)
 py_dep = py.dependency()
+
 fc = meson.get_compiler('fortran')
+
 
 # numpy include paths
 numpy_inc = run_command(py,
@@ -57,6 +59,7 @@ py.extension_module('estimator',
   include_directories: include_directories(numpy_inc, numpy_f2py_inc),
   dependencies: [py_dep, fftw_dep],
   fortran_args: fc.get_supported_arguments('-fallow-argument-mismatch', '-Wno-argument-mismatch') + [f_inc],
+
   install: true,
   subdir: 'pyspectrum',
 )
